@@ -1,0 +1,52 @@
+<svg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
+  <!-- white background -->
+  <circle cx="100" cy="100" r="99" fill="white"/>
+  <!-- outer border ring -->
+  <circle cx="100" cy="100" r="93" fill="none" stroke="black" stroke-width="7"/>
+
+  <!-- left round ear-flap -->
+  <path d="M56,44 C28,38 20,60 20,68 C20,80 30,92 56,88 Z" fill="black"/>
+  <!-- right round ear-flap -->
+  <path d="M144,44 C172,38 180,60 180,68 C180,80 170,92 144,88 Z" fill="black"/>
+
+  <!-- main head block (black) -->
+  <rect x="55" y="24" width="90" height="118" rx="3" fill="black"/>
+
+  <!-- left horn (white, black outline) -->
+  <polygon points="68,24 76,4 84,24" fill="white" stroke="black" stroke-width="3" stroke-linejoin="round"/>
+  <!-- right horn -->
+  <polygon points="116,24 124,4 132,24" fill="white" stroke="black" stroke-width="3" stroke-linejoin="round"/>
+
+  <!-- white 5-pointed star / blaze on face -->
+  <!-- outer points at r=30, inner at r=13, centered at (100,68) -->
+  <polygon points="
+    100,38
+    107.1,55.3
+    126.6,57.3
+    112.4,70.7
+    117.6,90.6
+    100,81
+    82.4,90.6
+    87.6,70.7
+    73.4,57.3
+    92.9,55.3
+  " fill="white"/>
+
+  <!-- muzzle / snout (white rect, bottom of head) -->
+  <rect x="67" y="109" width="66" height="33" rx="3" fill="white"/>
+  <!-- border line around muzzle from the black head -->
+  <rect x="67" y="109" width="66" height="33" rx="3" fill="none" stroke="black" stroke-width="1.5"/>
+  <!-- horizontal dividing line -->
+  <line x1="67" y1="125" x2="133" y2="125" stroke="black" stroke-width="2"/>
+  <!-- nostrils -->
+  <circle cx="84" cy="133" r="5.5" fill="black"/>
+  <circle cx="116" cy="133" r="5.5" fill="black"/>
+
+  <!-- LA VAQUERÍA curved text at bottom -->
+  <defs>
+    <path id="arc" d="M 24,166 A 82,82 0 0,0 176,166"/>
+  </defs>
+  <text font-family="'Arial Black','Helvetica Neue',Arial,sans-serif" font-weight="900" font-size="19" fill="black" letter-spacing="1.5">
+    <textPath href="#arc" startOffset="50%" text-anchor="middle">LA VAQUER&#205;A</textPath>
+  </text>
+</svg>

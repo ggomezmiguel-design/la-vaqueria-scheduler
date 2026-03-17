@@ -1,0 +1,890 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Restaurant Scheduler</title>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --red:#c1121f;--red2:#9b0e19;--redbg:#fff0f1;
+  --bg:#f4f5f7;--sur:#fff;--bdr:#e1e4e8;
+  --txt:#24292e;--mut:#6a737d;
+  --grn:#28a745;--org:#f4a261;--dan:#dc3545;
+  --r:8px;--sh:0 1px 3px rgba(0,0,0,.1);
+}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--bg);color:var(--txt);font-size:14px;min-height:100vh}
+
+/* HEADER */
+header{background:var(--red);color:#fff;display:flex;align-items:center;justify-content:space-between;padding:0 20px;height:60px;position:sticky;top:0;z-index:100;box-shadow:0 2px 8px rgba(0,0,0,.2)}
+.logo{display:flex;align-items:center;gap:10px}
+.logo-img{width:44px;height:44px;flex-shrink:0}
+.logo-text{display:flex;flex-direction:column;line-height:1.1}
+.logo-name{font-size:17px;font-weight:800;letter-spacing:.3px;color:#fff}
+.logo-sub{font-size:10px;font-weight:500;color:rgba(255,255,255,.75);text-transform:uppercase;letter-spacing:1.2px}
+nav{display:flex;gap:2px}
+.tab-btn{background:transparent;color:rgba(255,255,255,.75);border:none;padding:6px 14px;border-radius:6px;cursor:pointer;font-size:13px;font-weight:600;transition:.15s}
+.tab-btn:hover{background:rgba(255,255,255,.15);color:#fff}
+.tab-btn.active{background:rgba(255,255,255,.22);color:#fff}
+
+/* LAYOUT */
+main{max-width:1100px;margin:0 auto;padding:20px 16px}
+.tab-pane{display:none}.tab-pane.active{display:block}
+
+/* CARD */
+.card{background:var(--sur);border:1px solid var(--bdr);border-radius:var(--r);padding:20px 24px;margin-bottom:16px;box-shadow:var(--sh)}
+h2{font-size:15px;font-weight:600;margin-bottom:16px}
+
+/* FORMS */
+.fg{display:flex;flex-direction:column;gap:5px}
+.grid{display:grid;gap:14px}
+.g-auto{grid-template-columns:repeat(auto-fill,minmax(170px,1fr))}
+label{font-size:11px;font-weight:700;color:var(--mut);text-transform:uppercase;letter-spacing:.4px}
+input[type=text],input[type=number],input[type=time],select{padding:8px 10px;border:1px solid var(--bdr);border-radius:6px;font-size:14px;outline:none;width:100%;transition:border-color .15s,box-shadow .15s}
+input:focus,select:focus{border-color:var(--red);box-shadow:0 0 0 3px rgba(193,18,31,.12)}
+input[type=color]{padding:3px;height:36px;border:1px solid var(--bdr);border-radius:6px;cursor:pointer;width:100%}
+hr{border:none;border-top:1px solid var(--bdr);margin:18px 0}
+
+/* BUTTONS */
+.btn{display:inline-flex;align-items:center;gap:5px;padding:8px 14px;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer;border:1px solid transparent;transition:.15s;white-space:nowrap}
+.btn-p{background:var(--red);color:#fff;border-color:var(--red)}.btn-p:hover{background:var(--red2)}
+.btn-o{background:#fff;color:var(--txt);border-color:var(--bdr)}.btn-o:hover{background:var(--bg)}
+.btn-d{background:var(--dan);color:#fff}.btn-d:hover{background:#b02a37}
+.btn-sm{padding:4px 10px;font-size:12px}
+
+/* CHIPS */
+.chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
+.chip{padding:5px 12px;border-radius:20px;border:1.5px solid var(--bdr);font-size:13px;font-weight:500;cursor:pointer;user-select:none;color:var(--mut);transition:.15s}
+.chip.on{border-color:var(--red);background:var(--redbg);color:var(--red)}
+
+/* DATA TABLE */
+.tw{overflow-x:auto}
+table.dt{width:100%;border-collapse:collapse}
+table.dt th{text-align:left;padding:7px 12px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--mut);background:var(--bg);border-bottom:1px solid var(--bdr)}
+table.dt td{padding:10px 12px;border-bottom:1px solid var(--bdr);vertical-align:middle}
+table.dt tr:last-child td{border-bottom:none}
+table.dt tr:hover td{background:#fafafa}
+.dot{width:11px;height:11px;border-radius:50%;display:inline-block;flex-shrink:0}
+
+/* SHIFT CONFIG TABLE */
+table.sc{border-collapse:collapse;font-size:13px;width:100%}
+table.sc th{padding:7px 12px;text-align:center;background:var(--bg);border:1px solid var(--bdr);font-size:11px;font-weight:700;color:var(--mut);text-transform:uppercase;letter-spacing:.4px}
+table.sc th:first-child{text-align:left}
+table.sc td{padding:5px 8px;border:1px solid var(--bdr);vertical-align:middle}
+.shift-cell{display:flex;align-items:center;gap:5px;white-space:nowrap}
+.shift-cell input[type=time]{width:95px;padding:5px 7px;font-size:13px}
+.shift-cell .sh-lbl{font-size:11px;font-weight:700;color:var(--mut);min-width:26px;text-align:right}
+.shift-cell.disabled input[type=time]{opacity:.35;pointer-events:none}
+.shift-cell.disabled .sh-lbl{opacity:.35}
+input[type=checkbox]{width:15px;height:15px;cursor:pointer;accent-color:var(--red);flex-shrink:0}
+
+/* AVAIL MATRIX */
+table.mx{border-collapse:collapse}
+table.mx th{padding:5px 8px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;color:var(--mut);text-align:center;background:var(--bg);border:1px solid var(--bdr)}
+table.mx td{padding:3px;border:1px solid var(--bdr);text-align:center}
+.av{width:38px;height:30px;border-radius:5px;border:1.5px solid var(--bdr);cursor:pointer;display:inline-flex;align-items:center;justify-content:center;font-size:13px;user-select:none;transition:.1s}
+.av.off{background:#fafafa;border-color:#ddd;color:#bbb}
+.av.ok{background:#fff8e7;border-color:#f4a261;color:#c06010}
+.av.pref{background:#e6f7ee;border-color:#28a745;color:#165c27}
+
+/* SCHEDULE */
+.sched-top{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:16px}
+.wk-nav{display:flex;align-items:center;gap:8px}
+.wk-lbl{font-weight:700;font-size:15px;min-width:150px;text-align:center}
+.badge{padding:2px 7px;border-radius:10px;font-size:11px;font-weight:600;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
+
+/* TIMELINE */
+.tl-wrap{overflow-x:auto}
+.tl-inner{min-width:560px}
+.tl-header{display:flex;align-items:flex-end;margin-bottom:2px}
+.tl-day-col{width:72px;flex-shrink:0}
+.tl-hours-col{flex:1;position:relative;height:18px}
+.tl-hr-mark{position:absolute;transform:translateX(-50%);font-size:10px;color:var(--mut);white-space:nowrap;bottom:0}
+.tl-row{display:flex;align-items:center;gap:8px;margin-bottom:6px}
+.tl-day-lbl{width:72px;flex-shrink:0;text-align:right;padding-right:8px}
+.tl-day-lbl strong{font-size:13px;display:block}
+.tl-day-lbl span{font-size:10px;color:var(--mut)}
+.tl-bars{flex:1;position:relative;height:58px;border-radius:6px;background:var(--bg);border:1px solid var(--bdr)}
+.tl-grid-line{position:absolute;top:0;bottom:0;border-left:1px solid rgba(0,0,0,.06);pointer-events:none}
+.tl-bar{position:absolute;top:5px;bottom:5px;border-radius:5px;overflow:hidden;cursor:pointer;padding:3px 7px;display:flex;flex-direction:column;justify-content:center;gap:2px;transition:filter .15s;box-sizing:border-box}
+.tl-bar:hover{filter:brightness(.93)}
+.tl-bar-time{font-size:9px;font-weight:600;opacity:.65;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tl-bar-badges{display:flex;flex-wrap:wrap;gap:2px}
+.tl-bar-warn{font-size:9px;color:var(--dan);font-weight:600}
+.tl-bar-empty{font-size:10px;opacity:.4}
+.tl-bar.dragging{opacity:.4;cursor:grabbing}
+.tl-bars.drag-over{background:#e8f0fe;border-color:var(--red);border-style:dashed}
+.tl-resize{position:absolute;right:0;top:0;bottom:0;width:10px;cursor:ew-resize;z-index:10;display:flex;align-items:center;justify-content:center}
+.tl-resize::after{content:'';width:2px;height:55%;background:rgba(0,0,0,.18);border-radius:1px;transition:.15s}
+.tl-resize:hover::after{background:rgba(0,0,0,.45);width:3px}
+
+/* HOURS SUMMARY */
+.hgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(155px,1fr));gap:10px}
+.hcard{background:var(--bg);border:1px solid var(--bdr);border-radius:var(--r);padding:12px 14px}
+.hcard .hname{font-weight:700;font-size:13px;display:flex;align-items:center;gap:5px;margin-bottom:2px}
+.hcard .hrole{font-size:11px;color:var(--mut);margin-bottom:8px}
+.progress{height:7px;background:#e9ecef;border-radius:4px;overflow:hidden;margin-bottom:5px}
+.pf{height:100%;border-radius:4px}
+.pf-ok{background:var(--grn)}.pf-lo{background:var(--org)}.pf-hi{background:var(--dan)}
+.hnums{font-size:11px;color:var(--mut)}
+.hnums strong{color:var(--txt)}
+
+/* LEGEND */
+.legend{display:flex;flex-wrap:wrap;gap:8px;margin-top:14px;padding-top:12px;border-top:1px solid var(--bdr)}
+.li{display:flex;align-items:center;gap:5px;font-size:12px}
+
+/* MODAL */
+.overlay{position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:200;display:flex;align-items:center;justify-content:center;padding:16px}
+.modal{background:#fff;border-radius:var(--r);padding:24px;max-width:640px;width:100%;max-height:85vh;overflow-y:auto;box-shadow:0 8px 32px rgba(0,0,0,.25)}
+.modal h3{font-size:17px;margin-bottom:18px}
+.mfoot{display:flex;justify-content:flex-end;gap:8px;margin-top:20px;padding-top:16px;border-top:1px solid var(--bdr)}
+.cb-row{display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:6px;cursor:pointer;user-select:none}
+.cb-row:hover{background:var(--bg)}
+.cb-row input{width:16px;height:16px;cursor:pointer;accent-color:var(--red)}
+
+/* TOAST */
+.toast{position:fixed;bottom:20px;right:20px;background:#1a1a1a;color:#fff;padding:10px 16px;border-radius:6px;font-size:13px;z-index:999;opacity:0;transform:translateY(6px);transition:.2s;pointer-events:none}
+.toast.on{opacity:1;transform:translateY(0)}
+
+/* EMPTY */
+.empty{text-align:center;padding:36px 20px;color:var(--mut)}
+.empty .ico{font-size:36px;margin-bottom:8px}
+
+/* ALERT */
+.alert{padding:10px 14px;border-radius:6px;font-size:13px;line-height:1.6}
+.alert-i{background:#e8f4fd;color:#1a6a9a;border:1px solid #bee3f8}
+
+/* PRINT */
+@media print{
+  header,.no-print{display:none!important}
+  .tab-pane{display:block!important}
+  #tab-config,#tab-staff{display:none!important}
+  body{background:#fff}
+  main{padding:0;max-width:none;margin:0}
+  .card{box-shadow:none;border:1px solid #ccc;break-inside:avoid}
+}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">
+    <img class="logo-img" src="logo.svg" alt="La Vaqueria">
+    <div class="logo-text">
+      <span class="logo-name" id="hname">La Vaqueria</span>
+      <span class="logo-sub">Fuente del Berro · Madrid</span>
+    </div>
+  </div>
+  <nav>
+    <button class="tab-btn active" data-tab="config">⚙ Setup</button>
+    <button class="tab-btn" data-tab="staff">👥 Staff</button>
+    <button class="tab-btn" data-tab="schedule">📅 Schedule</button>
+  </nav>
+</header>
+
+<main>
+
+<!-- SETUP -->
+<div id="tab-config" class="tab-pane active">
+  <div class="card">
+    <h2>Restaurant Configuration</h2>
+    <div class="grid g-auto">
+      <div class="fg"><label>Restaurant Name</label><input type="text" id="cfg-name" placeholder="La Vaqueria"></div>
+    </div>
+    <hr>
+    <div class="fg"><label>Open Days</label>
+      <div class="chips" id="cfg-days">
+        <span class="chip on" data-day="Mon">Mon</span>
+        <span class="chip on" data-day="Tue">Tue</span>
+        <span class="chip on" data-day="Wed">Wed</span>
+        <span class="chip on" data-day="Thu">Thu</span>
+        <span class="chip on" data-day="Fri">Fri</span>
+        <span class="chip on" data-day="Sat">Sat</span>
+        <span class="chip on" data-day="Sun">Sun</span>
+      </div>
+    </div>
+    <div style="margin-top:20px">
+      <label style="display:block;margin-bottom:10px">Shifts per Day — tick to enable, set times and minimum staff required</label>
+      <div style="overflow-x:auto">
+        <table class="sc">
+          <thead>
+            <tr>
+              <th style="text-align:left">Day</th>
+              <th>Shift 1</th>
+              <th>Shift 2</th>
+              <th>Shift 3</th>
+            </tr>
+          </thead>
+          <tbody id="ds-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+    <div style="margin-top:20px"><button class="btn btn-p" onclick="saveConfig()">Save Configuration</button></div>
+  </div>
+  <div class="card">
+    <h2>How it works</h2>
+    <div class="alert alert-i">
+      <strong>1. Setup</strong> — Choose your open days, and define up to 3 shifts per day with their exact start and end times.<br>
+      <strong>2. Staff</strong> — Add employees with their contracted weekly hours. For each employee, mark each day/shift as <em>Off</em>, <em>Available</em>, or <em>Preferred</em>.<br>
+      <strong>3. Schedule</strong> — Click <strong>Generate</strong> to auto-build the week. The scheduler respects preferences and contracted hours. You can manually edit any cell.
+    </div>
+  </div>
+</div>
+
+<!-- STAFF -->
+<div id="tab-staff" class="tab-pane">
+  <div class="card no-print">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+      <h2 style="margin:0">Staff Members</h2>
+      <button class="btn btn-p" onclick="openEmpModal()">+ Add Employee</button>
+    </div>
+    <div id="emp-list"></div>
+  </div>
+</div>
+
+<!-- SCHEDULE -->
+<div id="tab-schedule" class="tab-pane">
+  <div class="card no-print">
+    <div class="sched-top">
+      <div class="wk-nav">
+        <button class="btn btn-o btn-sm" onclick="prevWeek()">← Prev</button>
+        <span class="wk-lbl" id="wk-lbl"></span>
+        <button class="btn btn-o btn-sm" onclick="nextWeek()">Next →</button>
+      </div>
+      <div style="display:flex;gap:8px">
+        <button class="btn btn-p" onclick="generateSchedule()">⚡ Generate</button>
+        <button class="btn btn-o" onclick="window.print()">🖨 Print</button>
+      </div>
+    </div>
+  </div>
+  <div class="card">
+    <h2 id="sched-title">Weekly Schedule</h2>
+    <div class="tw" id="sched-grid">
+      <div class="empty"><div class="ico">📅</div><p>Click <strong>Generate</strong> to build this week's schedule.</p></div>
+    </div>
+  </div>
+  <div class="card">
+    <h2>Hours Summary</h2>
+    <div id="hours-sum">
+      <div class="empty"><div class="ico">⏱</div><p>Generate a schedule to see the hours summary.</p></div>
+    </div>
+  </div>
+</div>
+
+</main>
+
+<!-- MODAL (shared) -->
+<div class="overlay" id="overlay" style="display:none" onclick="overlayBg(event)">
+  <div class="modal">
+    <h3 id="modal-title"></h3>
+    <div id="modal-body"></div>
+    <div class="mfoot">
+      <button class="btn btn-o" onclick="closeModal()">Cancel</button>
+      <button class="btn btn-p" id="modal-ok" onclick="">Save</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ── CONSTANTS ──────────────────────────────────────────────────────
+const DAYS = ["Mon","Tue","Wed","Thu","Fri","Sat","Sun"];
+const COLORS = ["#e63946","#2a9d8f","#457b9d","#f4a261","#6a4c93","#1982c4","#c77dff","#06d6a0","#fb8500","#8338ec"];
+const DEFAULT_SHIFTS = [
+  {start:"09:00",end:"15:00",enabled:true,staffMin:2},
+  {start:"15:00",end:"21:00",enabled:true,staffMin:2},
+  {start:"21:00",end:"23:00",enabled:false,staffMin:1}
+];
+
+// ── STATE ──────────────────────────────────────────────────────────
+let S = {
+  config: {
+    name:"La Vaqueria",
+    dayShifts: Object.fromEntries(DAYS.map(d=>[d, DEFAULT_SHIFTS.map(s=>({...s}))])),
+    openDays:[...DAYS]
+  },
+  employees: [],
+  schedules: {}
+};
+let weekStart = getMonday(new Date());
+let _emp = null;
+let _cellCtx = null;
+
+// ── PERSISTENCE ────────────────────────────────────────────────────
+function save() { localStorage.setItem("rs3",JSON.stringify(S)); }
+function load() {
+  try {
+    const d=JSON.parse(localStorage.getItem("rs3")||localStorage.getItem("rs2")||"null");
+    if(d){
+      S=d;
+      // Migrate from old dayHours + shiftLen format
+      if(!S.config.dayShifts){
+        const newDS={};
+        DAYS.forEach(day=>{
+          const dh=S.config.dayHours?.[day]||{open:"09:00",close:"23:00"};
+          const len=S.config.shiftLen||8;
+          const open=ph(dh.open), close=ph(dh.close);
+          const slots=[];
+          for(let h=open; h<close&&slots.length<3; h+=len){
+            const end=Math.min(h+len,close);
+            slots.push({start:fh(h),end:fh(end),enabled:true,staffMin:S.config.staffMin||2});
+          }
+          while(slots.length<3) slots.push({...DEFAULT_SHIFTS[slots.length]||{start:"00:00",end:"00:00"},enabled:false});
+          newDS[day]=slots;
+        });
+        S.config.dayShifts=newDS;
+        delete S.config.dayHours;
+        delete S.config.shiftLen;
+      }
+      // Ensure all days have 3 shift slots
+      DAYS.forEach(d=>{
+        if(!S.config.dayShifts[d]) S.config.dayShifts[d]=DEFAULT_SHIFTS.map(s=>({...s}));
+        while(S.config.dayShifts[d].length<3) S.config.dayShifts[d].push({...DEFAULT_SHIFTS[S.config.dayShifts[d].length]||{start:"00:00",end:"00:00"},enabled:false});
+      });
+      // Migrate default name
+      if(S.config.name==="My Restaurant") S.config.name="La Vaqueria";
+    }
+  } catch(e){}
+}
+
+// ── TABS ───────────────────────────────────────────────────────────
+document.querySelectorAll(".tab-btn").forEach(btn => {
+  btn.addEventListener("click", () => {
+    document.querySelectorAll(".tab-btn").forEach(b=>b.classList.remove("active"));
+    document.querySelectorAll(".tab-pane").forEach(p=>p.classList.remove("active"));
+    btn.classList.add("active");
+    document.getElementById("tab-"+btn.dataset.tab).classList.add("active");
+  });
+});
+
+// ── CONFIG ─────────────────────────────────────────────────────────
+function renderConfig() {
+  document.getElementById("cfg-name").value = S.config.name;
+  document.getElementById("hname").textContent = S.config.name;
+  document.querySelectorAll("#cfg-days .chip").forEach(c =>
+    c.classList.toggle("on", S.config.openDays.includes(c.dataset.day))
+  );
+  renderShiftsTable();
+}
+
+function renderShiftsTable() {
+  const openDays=[...document.querySelectorAll("#cfg-days .chip.on")].map(c=>c.dataset.day);
+  document.getElementById("ds-tbody").innerHTML = openDays.map(day => {
+    const slots = S.config.dayShifts?.[day] || DEFAULT_SHIFTS.map(s=>({...s}));
+    const cells = [0,1,2].map(si => {
+      const s = slots[si] || DEFAULT_SHIFTS[si];
+      const hrs = s.enabled ? Math.max(0, ph(s.end)-ph(s.start)) : 0;
+      const hLabel = hrs > 0 ? (hrs%1===0?hrs:hrs.toFixed(1))+'h' : '';
+      const sm = s.staffMin ?? 2;
+      const op = s.enabled ? '1' : '0.35';
+      return `<td style="padding:5px 8px;border:1px solid var(--bdr)">
+        <div class="shift-cell${s.enabled?'':' disabled'}" id="sc-${day}-${si}">
+          <input type="checkbox" id="ds-${day}-${si}-en" ${s.enabled?'checked':''} onchange="toggleShift('${day}',${si})">
+          <input type="time" id="ds-${day}-${si}-s" value="${s.start}" ${s.enabled?'':'disabled'} style="width:95px;padding:5px 7px;font-size:13px;opacity:${op}" oninput="updateShiftHours('${day}',${si})">
+          <span style="opacity:${op}">–</span>
+          <input type="time" id="ds-${day}-${si}-e" value="${s.end}" ${s.enabled?'':'disabled'} style="width:95px;padding:5px 7px;font-size:13px;opacity:${op}" oninput="updateShiftHours('${day}',${si})">
+          <span id="ds-${day}-${si}-h" style="font-size:11px;font-weight:700;color:var(--mut);min-width:26px;text-align:right;opacity:${op}">${hLabel}</span>
+          <span style="font-size:11px;color:var(--mut);opacity:${op};margin-left:4px">👥</span>
+          <input type="number" id="ds-${day}-${si}-m" value="${sm}" min="1" max="20" ${s.enabled?'':'disabled'} style="width:46px;padding:4px 5px;font-size:13px;text-align:center;opacity:${op}">
+        </div>
+      </td>`;
+    }).join("");
+    return `<tr>
+      <td style="padding:6px 12px;font-weight:700;border:1px solid var(--bdr);background:var(--bg)">${day}</td>
+      ${cells}
+    </tr>`;
+  }).join("");
+}
+
+function toggleShift(day, si) {
+  const cb = document.getElementById(`ds-${day}-${si}-en`);
+  const enabled = cb.checked;
+  const op = enabled ? '1' : '0.35';
+  [`s`,`e`,`m`].forEach(k=>{
+    const el = document.getElementById(`ds-${day}-${si}-${k}`);
+    if(el){ el.disabled = !enabled; el.style.opacity = op; }
+  });
+  const hEl = document.getElementById(`ds-${day}-${si}-h`);
+  if(hEl){ hEl.style.opacity = op; }
+  document.getElementById(`sc-${day}-${si}`)?.classList.toggle('disabled', !enabled);
+  if(enabled) updateShiftHours(day, si);
+  else if(hEl) hEl.textContent = '';
+}
+
+function updateShiftHours(day, si) {
+  const s = document.getElementById(`ds-${day}-${si}-s`)?.value;
+  const e = document.getElementById(`ds-${day}-${si}-e`)?.value;
+  const h = document.getElementById(`ds-${day}-${si}-h`);
+  if (!s || !e || !h) return;
+  const hrs = Math.max(0, ph(e)-ph(s));
+  h.textContent = hrs > 0 ? (hrs%1===0?hrs:hrs.toFixed(1))+'h' : '';
+}
+
+document.querySelectorAll("#cfg-days .chip").forEach(c =>
+  c.addEventListener("click", () => { c.classList.toggle("on"); renderShiftsTable(); })
+);
+
+function saveConfig() {
+  const openDays=[...document.querySelectorAll("#cfg-days .chip.on")].map(c=>c.dataset.day);
+  if(!openDays.length){toast("Select at least one open day");return;}
+  const newDayShifts = {...(S.config.dayShifts||{})};
+  for(const day of openDays){
+    const slots=[];
+    for(let si=0;si<3;si++){
+      const en=document.getElementById(`ds-${day}-${si}-en`)?.checked||false;
+      const s=document.getElementById(`ds-${day}-${si}-s`)?.value||DEFAULT_SHIFTS[si].start;
+      const e=document.getElementById(`ds-${day}-${si}-e`)?.value||DEFAULT_SHIFTS[si].end;
+      if(en && ph(e)<=ph(s)){toast(`⚠ ${day} Shift ${si+1}: end time must be after start time`);return;}
+      const sm=parseInt(document.getElementById(`ds-${day}-${si}-m`)?.value)||1;
+      slots.push({start:s,end:e,enabled:en,staffMin:sm});
+    }
+    if(!slots.some(s=>s.enabled)){toast(`⚠ ${day}: enable at least one shift`);return;}
+    newDayShifts[day]=slots;
+  }
+  S.config={
+    name:document.getElementById("cfg-name").value.trim()||"La Vaqueria",
+    dayShifts:newDayShifts,
+    openDays
+  };
+  document.getElementById("hname").textContent=S.config.name;
+  save(); toast("Configuration saved ✓");
+}
+
+// ── SHIFT HELPERS ──────────────────────────────────────────────────
+function ph(t) { const [h,m]=t.split(":").map(Number); return h+m/60; }
+function fh(h) { const hh=Math.floor(h),mm=Math.round((h-hh)*60); return `${String(hh).padStart(2,"0")}:${String(mm).padStart(2,"0")}`; }
+
+// Returns enabled shifts for a day, each with original slot index (0,1,2)
+function getShiftsForDay(day) {
+  const slots=S.config.dayShifts?.[day]||DEFAULT_SHIFTS;
+  return slots.map((s,idx)=>({s,idx}))
+    .filter(({s})=>s.enabled && ph(s.end)>ph(s.start))
+    .map(({s,idx})=>({idx, start:ph(s.start), end:ph(s.end), hours:ph(s.end)-ph(s.start), label:`${s.start}–${s.end}`, staffMin:s.staffMin??2}));
+}
+
+// Returns a specific slot by its index (0,1,2) — null if disabled
+function getSlot(day, slotIdx) {
+  const s=S.config.dayShifts?.[day]?.[slotIdx];
+  if(!s||!s.enabled) return null;
+  const start=ph(s.start), end=ph(s.end);
+  if(end<=start) return null;
+  return {idx:slotIdx, start, end, hours:end-start, label:`${s.start}–${s.end}`, staffMin:s.staffMin??2};
+}
+
+// ── EMPLOYEES ──────────────────────────────────────────────────────
+function renderEmployees() {
+  const el = document.getElementById("emp-list");
+  if (!S.employees.length) {
+    el.innerHTML=`<div class="empty"><div class="ico">👤</div><p>No staff yet. Add your first employee above.</p></div>`;
+    return;
+  }
+  el.innerHTML=`<div class="tw"><table class="dt">
+    <thead><tr><th></th><th>Name</th><th>Role</th><th>Hours/Week</th><th>Available Days</th><th></th></tr></thead>
+    <tbody>${S.employees.map(e=>`
+      <tr>
+        <td><span class="dot" style="background:${e.color}"></span></td>
+        <td><strong>${e.name}</strong></td>
+        <td style="color:var(--mut)">${e.role||"—"}</td>
+        <td>${e.hours}h</td>
+        <td style="font-size:12px">${availDays(e)}</td>
+        <td style="white-space:nowrap">
+          <button class="btn btn-o btn-sm" onclick="openEmpModal('${e.id}')">Edit</button>
+          <button class="btn btn-d btn-sm" onclick="delEmp('${e.id}')">✕</button>
+        </td>
+      </tr>`).join("")}
+    </tbody></table></div>`;
+}
+
+function availDays(emp) {
+  return DAYS.filter(d=>getShiftsForDay(d).some(s=>{
+    const v=emp.avail?.[d]?.[s.idx]; return v==="ok"||v==="pref";
+  })).join(", ")||"None";
+}
+
+function openEmpModal(id=null) {
+  _emp = id
+    ? JSON.parse(JSON.stringify(S.employees.find(e=>e.id===id)))
+    : {id:uid(),name:"",role:"",hours:40,color:COLORS[S.employees.length%COLORS.length],avail:{}};
+
+  document.getElementById("modal-title").textContent = id ? "Edit Employee" : "Add Employee";
+  document.getElementById("modal-ok").onclick = saveEmp;
+
+  // Always 3 shift columns
+  const shHd = [0,1,2].map(si=>`<th style="font-size:11px;padding:4px 10px;text-align:center">Shift ${si+1}</th>`).join("");
+
+  const rows = DAYS.map(day => {
+    const isOpen = S.config.openDays.includes(day);
+    const cells = [0,1,2].map(si => {
+      const shift = isOpen ? getSlot(day, si) : null;
+      if(!shift) return `<td><div class="av off" style="opacity:.2;cursor:default;font-size:11px">—</div></td>`;
+      const v = _emp.avail?.[day]?.[si]||"off";
+      return `<td title="${shift.label} (${shift.hours}h)"><div class="av ${v}" data-day="${day}" data-si="${si}" onclick="cycleAv(this)">${avIcon(v)}</div></td>`;
+    }).join("");
+    const enabledShifts = isOpen ? getShiftsForDay(day) : [];
+    const timesLabel = enabledShifts.length
+      ? `<br><span style="font-weight:400;font-size:10px;color:var(--mut)">${enabledShifts.map(s=>s.label).join(" · ")}</span>`
+      : "";
+    return `<tr><td style="padding:4px 10px;font-weight:700;font-size:12px;white-space:nowrap;border:1px solid var(--bdr);background:var(--bg)">${day}${timesLabel}</td>${cells}</tr>`;
+  }).join("");
+
+  document.getElementById("modal-body").innerHTML=`
+    <div class="grid g-auto" style="margin-bottom:18px">
+      <div class="fg"><label>Full Name *</label><input id="m-name" type="text" value="${esc(_emp.name)}" placeholder="e.g. Ana García"></div>
+      <div class="fg"><label>Role</label><input id="m-role" type="text" value="${esc(_emp.role)}" placeholder="e.g. Waiter, Chef"></div>
+      <div class="fg"><label>Contracted Hours / Week</label><input id="m-hours" type="number" value="${_emp.hours}" min="1" max="80"></div>
+      <div class="fg"><label>Colour</label><input id="m-color" type="color" value="${_emp.color}"></div>
+    </div>
+    <div class="fg" style="margin-bottom:8px"><label>Availability & Preferences</label></div>
+    <p style="font-size:12px;color:var(--mut);margin-bottom:10px">
+      Click to cycle: <strong style="color:#bbb">✕ Off</strong> → <strong style="color:#c06010">○ Available</strong> → <strong style="color:#165c27">★ Preferred</strong>
+    </p>
+    <div style="overflow-x:auto">
+      <table class="mx"><thead><tr><th></th>${shHd}</tr></thead><tbody>${rows}</tbody></table>
+    </div>`;
+  openModal();
+}
+
+function avIcon(v) { return v==="off"?"✕":v==="ok"?"○":"★"; }
+
+function cycleAv(el) {
+  const ord=["off","ok","pref"];
+  const next=(ord.indexOf(el.classList[1])+1)%3;
+  el.className=`av ${ord[next]}`; el.textContent=avIcon(ord[next]);
+}
+
+function saveEmp() {
+  const name=document.getElementById("m-name").value.trim();
+  if(!name){toast("Please enter a name");return;}
+  _emp.name=name;
+  _emp.role=document.getElementById("m-role").value.trim();
+  _emp.hours=parseInt(document.getElementById("m-hours").value)||40;
+  _emp.color=document.getElementById("m-color").value;
+  _emp.avail={};
+  document.querySelectorAll(".av[data-day]").forEach(el=>{
+    const d=el.dataset.day, si=parseInt(el.dataset.si);
+    if(!_emp.avail[d]) _emp.avail[d]={};
+    _emp.avail[d][si]=el.classList[1];
+  });
+  const i=S.employees.findIndex(e=>e.id===_emp.id);
+  if(i>=0) S.employees[i]=_emp; else S.employees.push(_emp);
+  save(); closeModal(); renderEmployees();
+  toast(i>=0?"Employee updated ✓":"Employee added ✓");
+}
+
+function delEmp(id) {
+  if(!confirm("Delete this employee?")) return;
+  S.employees=S.employees.filter(e=>e.id!==id);
+  save(); renderEmployees(); toast("Employee deleted");
+}
+
+// ── SCHEDULE GENERATION ────────────────────────────────────────────
+function generateSchedule() {
+  if(!S.employees.length){toast("Add employees first");return;}
+  const key=wkKey(weekStart);
+  const hours={};
+  S.employees.forEach(e=>hours[e.id]=0);
+  const sched={};
+  S.config.openDays.forEach(day=>{
+    sched[day]={};
+    [0,1,2].forEach(si=>{
+      const shift=getSlot(day,si);
+      if(!shift) return;
+      const cands=S.employees.filter(e=>{
+        const v=e.avail?.[day]?.[si]; return v==="ok"||v==="pref";
+      });
+      cands.sort((a,b)=>{
+        const ap=a.avail?.[day]?.[si]==="pref", bp=b.avail?.[day]?.[si]==="pref";
+        if(ap!==bp) return bp-ap;
+        return (b.hours-hours[b.id])-(a.hours-hours[a.id]);
+      });
+      const assigned=[];
+      for(const e of cands){
+        if(assigned.length>=shift.staffMin) break;
+        if(hours[e.id]+shift.hours<=e.hours+0.01){assigned.push(e.id);hours[e.id]+=shift.hours;}
+      }
+      if(assigned.length<shift.staffMin){
+        for(const e of cands){
+          if(assigned.length>=shift.staffMin) break;
+          if(!assigned.includes(e.id)){assigned.push(e.id);hours[e.id]+=shift.hours;}
+        }
+      }
+      sched[day][si]=assigned;
+    });
+  });
+  if(!S.schedules) S.schedules={};
+  S.schedules[key]={sched,hours};
+  save(); renderSchedule(); toast("Schedule generated ✓");
+}
+
+// ── RENDER SCHEDULE ────────────────────────────────────────────────
+const SHIFT_COLORS = ["#dbeafe","#dcfce7","#fef9c3"];
+const SHIFT_BORDER = ["#93c5fd","#86efac","#fde047"];
+
+function renderSchedule() {
+  const key=wkKey(weekStart);
+  const data=S.schedules?.[key];
+  const days=S.config.openDays;
+  const dates=wkDates(weekStart);
+  document.getElementById("sched-title").textContent=`Week ${isoWeek(weekStart)} · ${dates[0]} – ${dates[6]}`;
+
+  if(!data){
+    document.getElementById("sched-grid").innerHTML=`<div class="empty"><div class="ico">📅</div><p>No schedule for this week. Click <strong>Generate</strong>.</p></div>`;
+    document.getElementById("hours-sum").innerHTML=`<div class="empty"><div class="ico">⏱</div><p>Generate a schedule first.</p></div>`;
+    return;
+  }
+  const {sched,hours}=data;
+
+  // Time range across all open days
+  const allShifts=days.flatMap(d=>getShiftsForDay(d));
+  const minH=Math.min(...allShifts.map(s=>s.start));
+  const maxH=Math.max(...allShifts.map(s=>s.end));
+  const range=maxH-minH;
+
+  // Hour markers
+  const hrMarks=[];
+  for(let h=Math.ceil(minH);h<=Math.floor(maxH);h++) hrMarks.push(h);
+
+  const gridLines=hrMarks.map(h=>{
+    const pct=((h-minH)/range*100).toFixed(2);
+    return `<div class="tl-grid-line" style="left:${pct}%"></div>`;
+  }).join("");
+
+  const hrHeader=hrMarks.map(h=>{
+    const pct=((h-minH)/range*100).toFixed(2);
+    return `<div class="tl-hr-mark" style="left:${pct}%">${fh(h)}</div>`;
+  }).join("");
+
+  const dayRows=days.map(day=>{
+    const dayShifts=getShiftsForDay(day);
+    const bars=dayShifts.map(shift=>{
+      const left=((shift.start-minH)/range*100).toFixed(2);
+      const width=(shift.hours/range*100).toFixed(2);
+      const assigned=sched[day]?.[shift.idx]||[];
+      const under=assigned.length<shift.staffMin;
+      const badges=assigned.map(id=>{
+        const e=S.employees.find(e=>e.id===id); if(!e) return "";
+        return `<span class="badge" style="background:${e.color}">${e.name.split(" ")[0]}</span>`;
+      }).join("");
+      const bg=SHIFT_COLORS[shift.idx]||"#f0f4ff";
+      const bd=SHIFT_BORDER[shift.idx]||"#c5d0e6";
+      const nextSi=[shift.idx+1,shift.idx+2].find(si=>getSlot(day,si)!==null)??null;
+      const resizeHandle=nextSi!==null
+        ?`<div class="tl-resize" onmousedown="startResize(event,'${day}',${shift.idx},${nextSi})"></div>`:'';
+      return `<div class="tl-bar" draggable="true"
+        style="left:${left}%;width:${width}%;background:${bg};border:1.5px solid ${bd}"
+        onclick="openCellModal('${day}',${shift.idx})"
+        ondragstart="dragShift(event,'${day}',${shift.idx})"
+        ondragend="this.classList.remove('dragging')"
+        ondragover="event.preventDefault();event.stopPropagation();this.style.outline='2px dashed #c1121f'"
+        ondragleave="this.style.outline=''"
+        ondrop="dropOnBar(event,'${day}',${shift.idx})">
+        <div class="tl-bar-time">${shift.label} · ${assigned.length}/${shift.staffMin}</div>
+        <div class="tl-bar-badges">${badges||'<span class="tl-bar-empty">—</span>'}</div>
+        ${under?'<div class="tl-bar-warn">⚠ understaffed</div>':""}
+        ${resizeHandle}
+      </div>`;
+    }).join("");
+    const dateStr=dayDate(day,weekStart);
+    return `<div class="tl-row">
+      <div class="tl-day-lbl"><strong>${day}</strong><span>${dateStr}</span></div>
+      <div class="tl-bars"
+        ondragover="event.preventDefault()"
+        ondrop="dropShift(event,'${day}')"
+        ondragenter="this.classList.add('drag-over')"
+        ondragleave="this.classList.remove('drag-over')">${gridLines}${bars}</div>
+    </div>`;
+  }).join("");
+
+  document.getElementById("sched-grid").innerHTML=`
+    <div class="tl-wrap"><div class="tl-inner">
+      <div class="tl-header">
+        <div class="tl-day-col"></div>
+        <div class="tl-hours-col">${hrHeader}</div>
+      </div>
+      ${dayRows}
+      <div class="legend">${S.employees.map(e=>`<div class="li"><span class="dot" style="background:${e.color}"></span><span>${e.name}${e.role?" · "+e.role:""}</span></div>`).join("")}</div>
+    </div></div>`;
+
+  // Hours summary
+  document.getElementById("hours-sum").innerHTML=`<div class="hgrid">${S.employees.map(e=>{
+    const a=hours[e.id]||0, c=e.hours;
+    const pct=Math.min(Math.round(a/c*100),100);
+    const cls=a>c?"pf-hi":a<c*0.85?"pf-lo":"pf-ok";
+    const note=a>c?`<span style="color:var(--dan)"> +${(a-c).toFixed(1)}h over</span>`:a<c?`<span style="color:var(--mut)"> (${(c-a).toFixed(1)}h short)</span>`:"";
+    return `<div class="hcard">
+      <div class="hname"><span class="dot" style="background:${e.color}"></span>${e.name}</div>
+      <div class="hrole">${e.role||"—"}</div>
+      <div class="progress"><div class="pf ${cls}" style="width:${pct}%"></div></div>
+      <div class="hnums"><strong>${a}h</strong> / ${c}h${note}</div>
+    </div>`;
+  }).join("")}</div>`;
+}
+
+// ── DRAG & DROP ────────────────────────────────────────────────────
+function dragShift(e, day, slotIdx) {
+  e.dataTransfer.setData('text/plain', JSON.stringify({day, slotIdx}));
+  e.dataTransfer.effectAllowed = 'move';
+  setTimeout(()=>e.target.classList.add('dragging'), 0);
+}
+
+function swapShifts(fromDay, fromSlotIdx, toDay, toSlotIdx) {
+  const key = wkKey(weekStart);
+  if(!S.schedules?.[key]) return;
+  const fromShift = getSlot(fromDay, fromSlotIdx);
+  const toShift   = getSlot(toDay,   toSlotIdx);
+  if(!fromShift) return;
+  if(!toShift) { toast(`${toDay} has no Shift ${toSlotIdx+1}`); return; }
+  const {sched, hours} = S.schedules[key];
+  if(!sched[fromDay]) sched[fromDay]={};
+  if(!sched[toDay])   sched[toDay]={};
+  const fromEmp = sched[fromDay][fromSlotIdx] || [];
+  const toEmp   = sched[toDay][toSlotIdx]     || [];
+  fromEmp.forEach(id=>{ hours[id]=(hours[id]||0) - fromShift.hours; });
+  toEmp.forEach(id=>{   hours[id]=(hours[id]||0) - toShift.hours;   });
+  sched[fromDay][fromSlotIdx] = toEmp;
+  sched[toDay][toSlotIdx]     = fromEmp;
+  fromEmp.forEach(id=>{ hours[id]=(hours[id]||0) + toShift.hours;   });
+  toEmp.forEach(id=>{   hours[id]=(hours[id]||0) + fromShift.hours; });
+  save(); renderSchedule();
+  const label = fromDay===toDay ? `Shift ${fromSlotIdx+1} ↔ Shift ${toSlotIdx+1} on ${fromDay}` : `Shift ${fromSlotIdx+1} swapped: ${fromDay} ↔ ${toDay}`;
+  toast(label+' ✓');
+}
+
+function dropShift(e, toDay) {
+  e.preventDefault();
+  e.currentTarget.classList.remove('drag-over');
+  const {day: fromDay, slotIdx} = JSON.parse(e.dataTransfer.getData('text/plain'));
+  if(fromDay === toDay) return; // handled by dropOnBar if dropped on a bar
+  swapShifts(fromDay, slotIdx, toDay, slotIdx);
+}
+
+function dropOnBar(e, toDay, toSlotIdx) {
+  e.preventDefault();
+  e.stopPropagation();
+  e.currentTarget.style.outline = '';
+  const {day: fromDay, slotIdx: fromSlotIdx} = JSON.parse(e.dataTransfer.getData('text/plain'));
+  if(fromDay === toDay && fromSlotIdx === toSlotIdx) return;
+  swapShifts(fromDay, fromSlotIdx, toDay, toSlotIdx);
+}
+
+// ── SHIFT RESIZE ───────────────────────────────────────────────────
+let _resize = null;
+
+function startResize(e, day, slotIdx, nextSlotIdx) {
+  e.preventDefault(); e.stopPropagation();
+  const container = e.currentTarget.closest('.tl-bars');
+  const rect = container.getBoundingClientRect();
+  const allShifts = S.config.openDays.flatMap(d=>getShiftsForDay(d));
+  const minH = Math.min(...allShifts.map(s=>s.start));
+  const maxH = Math.max(...allShifts.map(s=>s.end));
+  _resize = {day, slotIdx, nextSlotIdx, rect, minH, range: maxH-minH};
+  document.addEventListener('mousemove', onResizeMove);
+  document.addEventListener('mouseup', onResizeEnd);
+  document.body.style.cursor = 'ew-resize';
+  document.body.style.userSelect = 'none';
+}
+
+function onResizeMove(e) {
+  if(!_resize) return;
+  const {day, slotIdx, nextSlotIdx, rect, minH, range} = _resize;
+  const pct = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+  let boundary = minH + pct * range;
+  // Snap to 15-minute increments
+  boundary = Math.round(boundary * 4) / 4;
+  // Clamp: each shift must keep at least 30 min
+  const cur  = S.config.dayShifts[day][slotIdx];
+  const next = S.config.dayShifts[day][nextSlotIdx];
+  boundary = Math.max(ph(cur.start) + 0.5, Math.min(ph(next.end) - 0.5, boundary));
+  cur.end   = fh(boundary);
+  next.start = fh(boundary);
+  renderSchedule();
+}
+
+function onResizeEnd() {
+  document.removeEventListener('mousemove', onResizeMove);
+  document.removeEventListener('mouseup', onResizeEnd);
+  document.body.style.cursor = '';
+  document.body.style.userSelect = '';
+  if(_resize) { save(); toast('Shift times updated ✓'); }
+  _resize = null;
+}
+
+// ── CELL EDIT MODAL ────────────────────────────────────────────────
+function openCellModal(day, slotIdx) {
+  const key=wkKey(weekStart);
+  if(!S.schedules?.[key]){toast("Generate a schedule first");return;}
+  const shift=getSlot(day,slotIdx);
+  if(!shift) return;
+  const assigned=S.schedules[key].sched[day]?.[slotIdx]||[];
+  _cellCtx={day,slotIdx,key};
+  document.getElementById("modal-title").textContent=`${day} · Shift ${slotIdx+1} · ${shift.label}`;
+  document.getElementById("modal-ok").onclick=saveCellEdit;
+  document.getElementById("modal-body").innerHTML=`
+    <p style="font-size:13px;color:var(--mut);margin-bottom:14px">Select employees assigned to this shift:</p>
+    ${S.employees.map(e=>`
+      <label class="cb-row">
+        <input type="checkbox" value="${e.id}" ${assigned.includes(e.id)?"checked":""}>
+        <span class="dot" style="background:${e.color}"></span>
+        <span style="font-weight:600">${e.name}</span>
+        <span style="color:var(--mut);font-size:12px">${e.role||""}</span>
+      </label>`).join("")}`;
+  openModal();
+}
+
+function saveCellEdit() {
+  const {day,slotIdx,key}=_cellCtx;
+  const shift=getSlot(day,slotIdx);
+  const prev=S.schedules[key].sched[day][slotIdx]||[];
+  const next=[...document.querySelectorAll("#modal-body input[type=checkbox]:checked")].map(i=>i.value);
+  prev.forEach(id=>{ S.schedules[key].hours[id]=(S.schedules[key].hours[id]||0)-shift.hours; });
+  next.forEach(id=>{ S.schedules[key].hours[id]=(S.schedules[key].hours[id]||0)+shift.hours; });
+  S.schedules[key].sched[day][slotIdx]=next;
+  save(); closeModal(); renderSchedule(); toast("Shift updated ✓");
+}
+
+// ── MODAL HELPERS ──────────────────────────────────────────────────
+function openModal() { document.getElementById("overlay").style.display="flex"; }
+function closeModal() { document.getElementById("overlay").style.display="none"; }
+function overlayBg(e) { if(e.target.id==="overlay") closeModal(); }
+
+// ── WEEK NAVIGATION ────────────────────────────────────────────────
+function getMonday(d) {
+  const dt=new Date(d); const day=dt.getDay();
+  dt.setDate(dt.getDate()-day+(day===0?-6:1)); dt.setHours(0,0,0,0); return dt;
+}
+function prevWeek() { weekStart=new Date(weekStart); weekStart.setDate(weekStart.getDate()-7); updateWkLabel(); renderSchedule(); }
+function nextWeek() { weekStart=new Date(weekStart); weekStart.setDate(weekStart.getDate()+7); updateWkLabel(); renderSchedule(); }
+function updateWkLabel() { document.getElementById("wk-lbl").textContent=`Week ${isoWeek(weekStart)}, ${weekStart.getFullYear()}`; }
+function wkDates(mon) {
+  return Array.from({length:7},(_,i)=>{const d=new Date(mon);d.setDate(d.getDate()+i);return d.toLocaleDateString("en-GB",{day:"2-digit",month:"short"});});
+}
+function dayDate(dayName,mon) {
+  const d=new Date(mon); d.setDate(d.getDate()+DAYS.indexOf(dayName));
+  return d.toLocaleDateString("en-GB",{day:"2-digit",month:"short"});
+}
+function wkKey(d) { return `${d.getFullYear()}-W${String(isoWeek(d)).padStart(2,"0")}`; }
+function isoWeek(date) {
+  const d=new Date(Date.UTC(date.getFullYear(),date.getMonth(),date.getDate()));
+  d.setUTCDate(d.getUTCDate()+4-(d.getUTCDay()||7));
+  const y=new Date(Date.UTC(d.getUTCFullYear(),0,1));
+  return Math.ceil(((d-y)/86400000+1)/7);
+}
+
+// ── UTILS ──────────────────────────────────────────────────────────
+function uid() { return Math.random().toString(36).slice(2,10); }
+function esc(s) { return (s||"").replace(/"/g,"&quot;"); }
+function toast(msg) {
+  const el=document.getElementById("toast"); el.textContent=msg; el.classList.add("on");
+  clearTimeout(el._t); el._t=setTimeout(()=>el.classList.remove("on"),2500);
+}
+
+// ── INIT ───────────────────────────────────────────────────────────
+load();
+renderConfig();
+renderEmployees();
+updateWkLabel();
+renderSchedule();
+</script>
+</body>
+</html>
