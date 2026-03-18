@@ -396,6 +396,8 @@ function load() {
       });
       // Migrate default name
       if(S.config.name==="My Restaurant") S.config.name="La Vaqueria";
+      // Migrate: add maxHours to existing employees that don't have it
+      if(S.employees) S.employees.forEach(e=>{ if(!e.maxHours) e.maxHours = e.fillOnly ? e.hours : 42; });
     }
   } catch(e){}
 }
