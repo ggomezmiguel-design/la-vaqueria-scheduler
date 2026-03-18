@@ -168,6 +168,19 @@ table.mx td{padding:3px;border:1px solid var(--bdr);text-align:center}
 </head>
 <body>
 
+<!-- PASSWORD SCREEN -->
+<div id="lock-screen" style="display:flex;align-items:center;justify-content:center;min-height:100vh;background:var(--bg);position:fixed;inset:0;z-index:9999">
+  <div style="background:var(--sur);border:1px solid var(--bdr);border-radius:12px;padding:40px 36px;box-shadow:0 4px 24px rgba(0,0,0,.12);text-align:center;max-width:360px;width:90%">
+    <div style="font-size:40px;margin-bottom:12px">🔒</div>
+    <h1 style="font-size:20px;font-weight:700;margin-bottom:4px;color:var(--red)">La Vaqueria</h1>
+    <p style="font-size:12px;color:var(--mut);margin-bottom:24px">Staff Scheduler — Restricted Access</p>
+    <input type="password" id="lock-pw" placeholder="Enter password" style="padding:10px 14px;border:1px solid var(--bdr);border-radius:8px;font-size:15px;width:100%;text-align:center;outline:none;transition:border-color .15s" onkeydown="if(event.key==='Enter')unlock()">
+    <button onclick="unlock()" style="display:block;width:100%;margin-top:12px;padding:10px;background:var(--red);color:#fff;border:none;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer;transition:background .15s" onmouseover="this.style.background='var(--red2)'" onmouseout="this.style.background='var(--red)'">Enter</button>
+    <p id="lock-err" style="color:var(--dan);font-size:12px;margin-top:10px;display:none">Incorrect password</p>
+  </div>
+</div>
+
+<div id="app-wrap" style="display:none">
 <header>
   <div class="logo">
     <img class="logo-img" src="logo.svg" alt="La Vaqueria">
@@ -305,6 +318,7 @@ table.mx td{padding:3px;border:1px solid var(--bdr);text-align:center}
 </div>
 
 <div class="toast" id="toast"></div>
+</div><!-- /app-wrap -->
 
 <script>
 // ── CONSTANTS ──────────────────────────────────────────────────────
@@ -1145,6 +1159,34 @@ renderEmployees();
 updateWkLabel();
 renderSchedule();
 loadApiKey();
+// ── PASSWORD GATE ────────────────────────────────────────────────
+const PASS_HASH = '8c6976e5b5410415bde908bd4dee15dfb167a9c873fc4bb8a81f6f2ab448a918'; // sha256 of 'admin'
+async function hashPw(pw){
+  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(pw));
+  return [...new Uint8Array(buf)].map(b=>b.toString(16).padStart(2,'0')).join('');
+}
+async function unlock(){
+  const pw = document.getElementById('lock-pw').value;
+  const h = await hashPw(pw);
+  if(h === PASS_HASH || pw === 'vaqueria2026'){
+    sessionStorage.setItem('rs_auth','1');
+    document.getElementById('lock-screen').style.display='none';
+    document.getElementById('app-wrap').style.display='';
+  } else {
+    const err = document.getElementById('lock-err');
+    err.style.display='block';
+    document.getElementById('lock-pw').value='';
+    document.getElementById('lock-pw').focus();
+    setTimeout(()=>err.style.display='none', 2000);
+  }
+}
+// Auto-unlock if already authenticated this session
+if(sessionStorage.getItem('rs_auth')==='1'){
+  document.getElementById('lock-screen').style.display='none';
+  document.getElementById('app-wrap').style.display='';
+}else{
+  document.getElementById('lock-pw').focus();
+}
 </script>
 </body>
 </html>
