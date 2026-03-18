@@ -805,10 +805,26 @@ function swapShifts(fromDay, fromSlotIdx, toDay, toSlotIdx) {
   const {sched} = S.schedules[key];
   if(!sched[fromDay]) sched[fromDay]={};
   if(!sched[toDay])   sched[toDay]={};
-  const fromEmp = sched[fromDay][fromSlotIdx] || [];
-  const toEmp   = sched[toDay][toSlotIdx]     || [];
+  const fromEmp = [...(sched[fromDay][fromSlotIdx] || [])];
+  const toEmp   = [...(sched[toDay][toSlotIdx]     || [])];
+  console.log('[swap] fromDay', fromDay, fromSlotIdx, '→', fromEmp);
+  console.log('[swap] toDay', toDay, toSlotIdx, '→', toEmp);
   sched[fromDay][fromSlotIdx] = toEmp;
   sched[toDay][toSlotIdx]     = fromEmp;
+  console.log('[swap] after: sched', JSON.stringify(sched));
+  // Recalculate hours from scratch
+  const hours={};
+  S.employees.forEach(e=>hours[e.id]=0);
+  for(const [day,slots] of Object.entries(sched)){
+    for(const [si,emps] of Object.entries(slots)){
+      const shift=getSlot(day,parseInt(si));
+      if(!shift) continue;
+      (emps||[]).forEach(id=>{if(hours[id]!==undefined) hours[id]+=shift.hours;});
+    }
+  }
+  S.schedules[key].hours=hours;
+  console.log('[swap] recalculated hours', JSON.stringify(hours));
+  console.log('[swap] employees', JSON.stringify(S.employees.map(e=>({id:e.id,name:e.name}))));
   renderSchedule(); save();
   const label = fromDay===toDay ? `Shift ${fromSlotIdx+1} ↔ Shift ${toSlotIdx+1} on ${fromDay}` : `Shift ${fromSlotIdx+1} swapped: ${fromDay} ↔ ${toDay}`;
   toast(label+' ✓');
