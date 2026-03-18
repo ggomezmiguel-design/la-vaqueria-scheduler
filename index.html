@@ -484,7 +484,7 @@ function renderEmployees() {
     <tbody>${S.employees.map(e=>`
       <tr>
         <td><span class="dot" style="background:${e.color}"></span></td>
-        <td><strong>${e.name}</strong></td>
+        <td><strong>${e.name}</strong>${e.fillOnly?' <span style="font-size:10px;font-weight:700;background:#fff3cd;color:#856404;border:1px solid #ffc107;border-radius:4px;padding:1px 5px">fill-in</span>':''}</td>
         <td style="color:var(--mut)">${e.role||"—"}</td>
         <td>${e.hours}h</td>
         <td style="font-size:12px">${availDays(e)}</td>
@@ -534,6 +534,16 @@ function openEmpModal(id=null) {
       <div class="fg"><label>Role</label><input id="m-role" type="text" value="${esc(_emp.role)}" placeholder="e.g. Waiter, Chef"></div>
       <div class="fg"><label>Contracted Hours / Week</label><input id="m-hours" type="number" value="${_emp.hours}" min="1" max="80"></div>
       <div class="fg"><label>Colour</label><input id="m-color" type="color" value="${_emp.color}"></div>
+      <div class="fg" style="justify-content:flex-end">
+        <label style="margin-bottom:6px">Scheduling Priority</label>
+        <label class="cb-row" style="border:1px solid var(--bdr);border-radius:6px;background:${_emp.fillOnly?'#fff3cd':''}">
+          <input id="m-fillin" type="checkbox" ${_emp.fillOnly?'checked':''}>
+          <span>
+            <span style="font-weight:700;font-size:13px">Fill-in only</span><br>
+            <span style="font-size:11px;color:var(--mut)">Only assign if shift is still understaffed</span>
+          </span>
+        </label>
+      </div>
     </div>
     <div class="fg" style="margin-bottom:8px"><label>Availability & Preferences</label></div>
     <p style="font-size:12px;color:var(--mut);margin-bottom:10px">
@@ -560,6 +570,7 @@ function saveEmp() {
   _emp.role=document.getElementById("m-role").value.trim();
   _emp.hours=parseInt(document.getElementById("m-hours").value)||40;
   _emp.color=document.getElementById("m-color").value;
+  _emp.fillOnly=document.getElementById("m-fillin").checked;
   _emp.avail={};
   document.querySelectorAll(".av[data-day]").forEach(el=>{
     const d=el.dataset.day, si=parseInt(el.dataset.si);
@@ -590,21 +601,39 @@ function generateSchedule() {
     [0,1,2].forEach(si=>{
       const shift=getSlot(day,si);
       if(!shift) return;
-      const cands=S.employees.filter(e=>{
+      const allCands=S.employees.filter(e=>{
         const v=e.avail?.[day]?.[si]; return v==="ok"||v==="pref";
       });
-      cands.sort((a,b)=>{
+      const sortFn=(a,b)=>{
         const ap=a.avail?.[day]?.[si]==="pref", bp=b.avail?.[day]?.[si]==="pref";
         if(ap!==bp) return bp-ap;
         return (b.hours-hours[b.id])-(a.hours-hours[a.id]);
-      });
+      };
+      const regular=allCands.filter(e=>!e.fillOnly).sort(sortFn);
+      const fillin =allCands.filter(e=> e.fillOnly).sort(sortFn);
       const assigned=[];
-      for(const e of cands){
+      // Pass 1: regular staff within contracted hours
+      for(const e of regular){
         if(assigned.length>=shift.staffMin) break;
         if(hours[e.id]+shift.hours<=e.hours+0.01){assigned.push(e.id);hours[e.id]+=shift.hours;}
       }
+      // Pass 2: regular staff over contracted hours (if still short)
       if(assigned.length<shift.staffMin){
-        for(const e of cands){
+        for(const e of regular){
+          if(assigned.length>=shift.staffMin) break;
+          if(!assigned.includes(e.id)){assigned.push(e.id);hours[e.id]+=shift.hours;}
+        }
+      }
+      // Pass 3: fill-in staff within contracted hours (only if still short)
+      if(assigned.length<shift.staffMin){
+        for(const e of fillin){
+          if(assigned.length>=shift.staffMin) break;
+          if(hours[e.id]+shift.hours<=e.hours+0.01){assigned.push(e.id);hours[e.id]+=shift.hours;}
+        }
+      }
+      // Pass 4: fill-in staff over contracted hours (last resort)
+      if(assigned.length<shift.staffMin){
+        for(const e of fillin){
           if(assigned.length>=shift.staffMin) break;
           if(!assigned.includes(e.id)){assigned.push(e.id);hours[e.id]+=shift.hours;}
         }
