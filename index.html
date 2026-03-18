@@ -661,31 +661,41 @@ function generateSchedule() {
         if(ap!==bp) return bp-ap;
         return (b.hours-hours[b.id])-(a.hours-hours[a.id]);
       };
+      const MAX_HRS = 42; // hard cap — nobody gets more than this
       const regular=allCands.filter(e=>!e.fillOnly).sort(sortFn);
       const fillin =allCands.filter(e=> e.fillOnly).sort(sortFn);
       const assigned=[];
+      const fits=(id,h)=> hours[id]+h <= S.employees.find(e=>e.id===id).hours+0.01;
+      const underCap=(id,h)=> hours[id]+h <= MAX_HRS+0.01;
       // Pass 1: regular staff within contracted hours
       for(const e of regular){
         if(assigned.length>=shift.staffMin) break;
-        if(hours[e.id]+shift.hours<=e.hours+0.01){assigned.push(e.id);hours[e.id]+=shift.hours;}
+        if(fits(e.id,shift.hours)){assigned.push(e.id);hours[e.id]+=shift.hours;}
       }
-      // Pass 2: regular staff over contracted hours (if still short)
+      // Pass 2: fill-in staff within contracted hours (before overstaffing regulars)
+      if(assigned.length<shift.staffMin){
+        for(const e of fillin){
+          if(assigned.length>=shift.staffMin) break;
+          if(fits(e.id,shift.hours)){assigned.push(e.id);hours[e.id]+=shift.hours;}
+        }
+      }
+      // Pass 3: regular staff over contracted but under 42h cap
       if(assigned.length<shift.staffMin){
         for(const e of regular){
           if(assigned.length>=shift.staffMin) break;
-          if(!assigned.includes(e.id)){assigned.push(e.id);hours[e.id]+=shift.hours;}
+          if(!assigned.includes(e.id)&&underCap(e.id,shift.hours)){assigned.push(e.id);hours[e.id]+=shift.hours;}
         }
       }
-      // Pass 3: fill-in staff within contracted hours (only if still short)
+      // Pass 4: fill-in staff over contracted but under 42h cap
       if(assigned.length<shift.staffMin){
         for(const e of fillin){
           if(assigned.length>=shift.staffMin) break;
-          if(hours[e.id]+shift.hours<=e.hours+0.01){assigned.push(e.id);hours[e.id]+=shift.hours;}
+          if(!assigned.includes(e.id)&&underCap(e.id,shift.hours)){assigned.push(e.id);hours[e.id]+=shift.hours;}
         }
       }
-      // Pass 4: fill-in staff over contracted hours (last resort)
+      // Pass 5: anyone left (absolute last resort, ignores cap)
       if(assigned.length<shift.staffMin){
-        for(const e of fillin){
+        for(const e of [...regular,...fillin]){
           if(assigned.length>=shift.staffMin) break;
           if(!assigned.includes(e.id)){assigned.push(e.id);hours[e.id]+=shift.hours;}
         }
