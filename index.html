@@ -226,7 +226,15 @@ table.mx td{padding:3px;border:1px solid var(--bdr);text-align:center}
     <div class="alert alert-i">
       <strong>1. Setup</strong> — Choose your open days, and define up to 3 shifts per day with their exact start and end times.<br>
       <strong>2. Staff</strong> — Add employees with their contracted weekly hours. For each employee, mark each day/shift as <em>Off</em>, <em>Available</em>, or <em>Preferred</em>.<br>
-      <strong>3. Schedule</strong> — Click <strong>Generate</strong> to auto-build the week. The scheduler respects preferences and contracted hours. You can manually edit any cell.
+      <strong>3. Schedule</strong> — Click <strong>⚡ Generate</strong> for the automatic scheduler, or <strong>✨ Generate with AI</strong> to describe what you want in plain language.
+    </div>
+  </div>
+  <div class="card">
+    <h2>✨ AI Schedule Generation</h2>
+    <div class="fg" style="margin-bottom:14px">
+      <label>Anthropic API Key</label>
+      <input type="password" id="cfg-apikey" placeholder="sk-ant-..." style="font-family:monospace" oninput="saveApiKey()">
+      <span style="font-size:11px;color:var(--mut);margin-top:3px">Stored locally in your browser only. Get one at <a href="https://console.anthropic.com" target="_blank" style="color:var(--red)">console.anthropic.com</a></span>
     </div>
   </div>
 </div>
@@ -255,6 +263,16 @@ table.mx td{padding:3px;border:1px solid var(--bdr);text-align:center}
         <button class="btn btn-p" onclick="generateSchedule()">⚡ Generate</button>
         <button class="btn btn-o" onclick="window.print()">🖨 Print</button>
       </div>
+    </div>
+    <div style="border-top:1px solid var(--bdr);margin-top:14px;padding-top:14px">
+      <div style="display:flex;align-items:flex-start;gap:10px">
+        <div style="flex:1">
+          <label style="font-size:11px;font-weight:700;color:var(--mut);text-transform:uppercase;letter-spacing:.4px;display:block;margin-bottom:5px">AI Instructions <span style="font-weight:400;text-transform:none;letter-spacing:0">(optional — describe what you want)</span></label>
+          <textarea id="ai-instructions" placeholder='e.g. "Give Ana the weekend off", "Balance hours as evenly as possible", "Keep the same team on shift 1 all week"' style="width:100%;padding:8px 10px;border:1px solid var(--bdr);border-radius:6px;font-size:13px;font-family:inherit;resize:vertical;min-height:58px;outline:none;transition:border-color .15s" onfocus="this.style.borderColor='var(--red)'" onblur="this.style.borderColor='var(--bdr)'"></textarea>
+        </div>
+        <button id="ai-gen-btn" class="btn btn-p" style="margin-top:22px;white-space:nowrap;background:linear-gradient(135deg,#6a4c93,#c1121f)" onclick="generateWithAI()">✨ Generate with AI</button>
+      </div>
+      <div id="ai-status" style="font-size:12px;color:var(--mut);margin-top:6px;display:none"></div>
     </div>
   </div>
   <div class="card">
@@ -908,12 +926,157 @@ function toast(msg) {
   clearTimeout(el._t); el._t=setTimeout(()=>el.classList.remove("on"),2500);
 }
 
+// ── API KEY ────────────────────────────────────────────────────────
+function saveApiKey() {
+  const v = document.getElementById("cfg-apikey")?.value || "";
+  if(v) localStorage.setItem("anthropic_key", v);
+  else localStorage.removeItem("anthropic_key");
+}
+function loadApiKey() {
+  const k = localStorage.getItem("anthropic_key") || "";
+  const el = document.getElementById("cfg-apikey");
+  if(el) el.value = k;
+}
+
+// ── AI SCHEDULE GENERATION ─────────────────────────────────────────
+async function generateWithAI() {
+  const apiKey = localStorage.getItem("anthropic_key") || "";
+  if(!apiKey) { toast("Add your Anthropic API key in Setup first"); return; }
+  if(!S.employees.length) { toast("Add employees first"); return; }
+
+  const instructions = document.getElementById("ai-instructions")?.value?.trim() || "";
+  const btn = document.getElementById("ai-gen-btn");
+  const status = document.getElementById("ai-status");
+
+  btn.disabled = true; btn.textContent = "⏳ Thinking...";
+  if(status){ status.style.display="block"; status.textContent="Sending request to Claude…"; }
+
+  // Build staff context
+  const staffInfo = S.employees.map(e => ({
+    id: e.id, name: e.name, role: e.role||"",
+    contractedHours: e.hours, fillInOnly: e.fillOnly||false,
+    availability: S.config.openDays.flatMap(day =>
+      getShiftsForDay(day).reduce((acc, s) => {
+        const v = e.avail?.[day]?.[s.idx];
+        if(v && v!=="off") acc.push({day, shiftIdx:s.idx, time:s.label, preference: v==="pref"?"preferred":"available"});
+        return acc;
+      }, [])
+    )
+  }));
+
+  const shiftConfig = S.config.openDays.map(day => ({
+    day, shifts: getShiftsForDay(day).map(s => ({
+      slotIdx: s.idx, time: s.label, hours: s.hours, minStaff: s.staffMin
+    }))
+  }));
+
+  const prompt = `You are a scheduling assistant for "${S.config.name}", a restaurant.
+
+## Staff
+${JSON.stringify(staffInfo, null, 2)}
+
+## Shift Configuration
+${JSON.stringify(shiftConfig, null, 2)}
+
+## Scheduling Instructions
+${instructions || "Generate a fair schedule that respects contracted hours and staff availability preferences."}
+
+## Task
+Generate a weekly staff schedule following these rules:
+- Only assign an employee to a shift if their availability for that day/shift is "available" or "preferred"
+- Prioritise "preferred" availability over "available"
+- Aim to meet each employee's contracted weekly hours (sum of shift hours assigned)
+- fillInOnly employees must only be assigned if a shift would be understaffed without them
+- Meet the minStaff requirement for each shift where possible
+- Follow the scheduling instructions above carefully
+
+Return ONLY valid JSON, no markdown, no explanation:
+{
+  "sched": {
+    "Mon": {"0": ["empId1", "empId2"], "1": ["empId3"]},
+    ...
+  },
+  "hours": {
+    "empId1": 12.5,
+    ...
+  }
+}
+
+Open days: ${S.config.openDays.join(", ")}
+Employee IDs: ${S.employees.map(e=>`"${e.id}" = ${e.name}`).join(", ")}
+Only include days that are open. Only include slot indices for enabled shifts. Include every employee in "hours" even if 0.`;
+
+  try {
+    const res = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-api-key": apiKey,
+        "anthropic-version": "2023-06-01",
+        "anthropic-dangerous-direct-browser-access": "true"
+      },
+      body: JSON.stringify({
+        model: "claude-opus-4-6",
+        max_tokens: 4096,
+        messages: [{role:"user", content: prompt}]
+      })
+    });
+
+    if(!res.ok) {
+      const err = await res.json().catch(()=>({}));
+      throw new Error(err.error?.message || `API error ${res.status}`);
+    }
+
+    const data = await res.json();
+    const text = data.content?.[0]?.text || "";
+
+    // Extract JSON from response (handle any surrounding text)
+    const match = text.match(/\{[\s\S]*\}/);
+    if(!match) throw new Error("No JSON found in AI response");
+    const parsed = JSON.parse(match[0]);
+
+    // Normalise: slot keys might be strings, convert to integers
+    const sched = {};
+    for(const [day, slots] of Object.entries(parsed.sched || {})) {
+      sched[day] = {};
+      for(const [si, emps] of Object.entries(slots)) {
+        sched[day][parseInt(si)] = Array.isArray(emps) ? emps : [];
+      }
+    }
+
+    // Recalculate hours from actual shift durations (more accurate than AI estimate)
+    const hours = {};
+    S.employees.forEach(e => hours[e.id] = 0);
+    for(const [day, slots] of Object.entries(sched)) {
+      for(const [si, emps] of Object.entries(slots)) {
+        const shift = getSlot(day, parseInt(si));
+        if(!shift) continue;
+        emps.forEach(id => { if(hours[id]!==undefined) hours[id] += shift.hours; });
+      }
+    }
+
+    const wk = wkKey(weekStart);
+    if(!S.schedules) S.schedules = {};
+    S.schedules[wk] = {sched, hours};
+    save(); renderSchedule();
+    toast("✨ AI schedule generated ✓");
+    if(status){ status.style.display="block"; status.textContent="Schedule generated by Claude ✓"; setTimeout(()=>status.style.display="none", 3000); }
+
+  } catch(e) {
+    toast("AI error: " + e.message);
+    if(status){ status.style.display="block"; status.textContent="Error: " + e.message; }
+  } finally {
+    btn.disabled = false; btn.textContent = "✨ Generate with AI";
+  }
+}
+
 // ── INIT ───────────────────────────────────────────────────────────
 load();
 renderConfig();
 renderEmployees();
 updateWkLabel();
 renderSchedule();
+loadApiKey();
 </script>
 </body>
 </html>
