@@ -693,6 +693,8 @@ function renderSchedule() {
       (emps||[]).forEach(id=>{if(hours[id]!==undefined) hours[id]+=shift.hours;});
     }
   }
+  // Round to 2 decimals to avoid floating point accumulation (e.g. 42.733333333334)
+  for(const id in hours) hours[id]=Math.round(hours[id]*100)/100;
   data.hours=hours; // keep stored value in sync
 
   // Time range across all open days
@@ -767,16 +769,18 @@ function renderSchedule() {
     </div></div>`;
 
   // Hours summary
+  const fmtH=v=>{const r=Math.round(v*100)/100; return r%1===0?r:r.toFixed(2);};
   document.getElementById("hours-sum").innerHTML=`<div class="hgrid">${S.employees.map(e=>{
     const a=hours[e.id]||0, c=e.hours;
     const pct=Math.min(Math.round(a/c*100),100);
     const cls=a>c?"pf-hi":a<c*0.85?"pf-lo":"pf-ok";
-    const note=a>c?`<span style="color:var(--dan)"> +${(a-c).toFixed(1)}h over</span>`:a<c?`<span style="color:var(--mut)"> (${(c-a).toFixed(1)}h short)</span>`:"";
+    const diff=Math.round(Math.abs(a-c)*100)/100;
+    const note=a>c?`<span style="color:var(--dan)"> +${fmtH(diff)}h over</span>`:a<c?`<span style="color:var(--mut)"> (${fmtH(diff)}h short)</span>`:"";
     return `<div class="hcard">
       <div class="hname"><span class="dot" style="background:${e.color}"></span>${e.name}</div>
       <div class="hrole">${e.role||"—"}</div>
       <div class="progress"><div class="pf ${cls}" style="width:${pct}%"></div></div>
-      <div class="hnums"><strong>${a}h</strong> / ${c}h${note}</div>
+      <div class="hnums"><strong>${fmtH(a)}h</strong> / ${c}h${note}</div>
     </div>`;
   }).join("")}</div>`;
 }
@@ -805,26 +809,10 @@ function swapShifts(fromDay, fromSlotIdx, toDay, toSlotIdx) {
   const {sched} = S.schedules[key];
   if(!sched[fromDay]) sched[fromDay]={};
   if(!sched[toDay])   sched[toDay]={};
-  const fromEmp = [...(sched[fromDay][fromSlotIdx] || [])];
-  const toEmp   = [...(sched[toDay][toSlotIdx]     || [])];
-  console.log('[swap] fromDay', fromDay, fromSlotIdx, '→', fromEmp);
-  console.log('[swap] toDay', toDay, toSlotIdx, '→', toEmp);
+  const fromEmp = sched[fromDay][fromSlotIdx] || [];
+  const toEmp   = sched[toDay][toSlotIdx]     || [];
   sched[fromDay][fromSlotIdx] = toEmp;
   sched[toDay][toSlotIdx]     = fromEmp;
-  console.log('[swap] after: sched', JSON.stringify(sched));
-  // Recalculate hours from scratch
-  const hours={};
-  S.employees.forEach(e=>hours[e.id]=0);
-  for(const [day,slots] of Object.entries(sched)){
-    for(const [si,emps] of Object.entries(slots)){
-      const shift=getSlot(day,parseInt(si));
-      if(!shift) continue;
-      (emps||[]).forEach(id=>{if(hours[id]!==undefined) hours[id]+=shift.hours;});
-    }
-  }
-  S.schedules[key].hours=hours;
-  console.log('[swap] recalculated hours', JSON.stringify(hours));
-  console.log('[swap] employees', JSON.stringify(S.employees.map(e=>({id:e.id,name:e.name}))));
   renderSchedule(); save();
   const label = fromDay===toDay ? `Shift ${fromSlotIdx+1} ↔ Shift ${toSlotIdx+1} on ${fromDay}` : `Shift ${fromSlotIdx+1} swapped: ${fromDay} ↔ ${toDay}`;
   toast(label+' ✓');
@@ -874,7 +862,7 @@ function moveBadge(fromDay, fromSlotIdx, empId, toDay, toSlotIdx) {
   if(!sched[toDay]) sched[toDay] = {};
   const toArr = sched[toDay][toSlotIdx] || [];
   if(!toArr.includes(empId)) sched[toDay][toSlotIdx] = [...toArr, empId];
-  save(); renderSchedule();
+  renderSchedule(); save();
   const emp = S.employees.find(e => e.id === empId);
   const name = emp?.name?.split(' ')[0] || 'Employee';
   toast(`${name} moved to ${toDay} shift ${toSlotIdx+1} ✓`);
@@ -946,13 +934,9 @@ function openCellModal(day, slotIdx) {
 
 function saveCellEdit() {
   const {day,slotIdx,key}=_cellCtx;
-  const shift=getSlot(day,slotIdx);
-  const prev=S.schedules[key].sched[day][slotIdx]||[];
   const next=[...document.querySelectorAll("#modal-body input[type=checkbox]:checked")].map(i=>i.value);
-  prev.forEach(id=>{ S.schedules[key].hours[id]=(S.schedules[key].hours[id]||0)-shift.hours; });
-  next.forEach(id=>{ S.schedules[key].hours[id]=(S.schedules[key].hours[id]||0)+shift.hours; });
   S.schedules[key].sched[day][slotIdx]=next;
-  save(); closeModal(); renderSchedule(); toast("Shift updated ✓");
+  closeModal(); renderSchedule(); save(); toast("Shift updated ✓");
 }
 
 // ── MODAL HELPERS ──────────────────────────────────────────────────
