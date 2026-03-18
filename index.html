@@ -663,7 +663,10 @@ function generateSchedule() {
   const hours={};
   S.employees.forEach(e=>hours[e.id]=0);
   const sched={};
-  S.config.openDays.forEach(day=>{
+  // Randomise day order so different days get priority each time
+  const _shuf=(arr)=>{const a=[...arr];for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];}return a;};
+  const dayOrder=_shuf(S.config.openDays);
+  dayOrder.forEach(day=>{
     sched[day]={};
     [0,1,2].forEach(si=>{
       const shift=getSlot(day,si);
@@ -671,15 +674,16 @@ function generateSchedule() {
       const allCands=S.employees.filter(e=>{
         const v=e.avail?.[day]?.[si]; return v==="ok"||v==="pref";
       });
+      // Shuffle array (Fisher-Yates) so ties are broken randomly
+      const shuffle=(arr)=>{const a=[...arr];for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];}return a;};
       const sortFn=(a,b)=>{
         const ap=a.avail?.[day]?.[si]==="pref", bp=b.avail?.[day]?.[si]==="pref";
         if(ap!==bp) return bp-ap;
-        const diff=(b.hours-hours[b.id])-(a.hours-hours[a.id]);
-        if(Math.abs(diff)<2) return Math.random()-0.5; // randomise among similar candidates
-        return diff;
+        return (b.hours-hours[b.id])-(a.hours-hours[a.id]);
       };
-      const regular=allCands.filter(e=>!e.fillOnly).sort(sortFn);
-      const fillin =allCands.filter(e=> e.fillOnly).sort(sortFn);
+      // Shuffle first then sort — equal-priority candidates get random order
+      const regular=shuffle(allCands.filter(e=>!e.fillOnly)).sort(sortFn);
+      const fillin =shuffle(allCands.filter(e=> e.fillOnly)).sort(sortFn);
       const assigned=[];
       const fits=(id,h)=> hours[id]+h <= S.employees.find(e=>e.id===id).hours+0.01;
       const underCap=(id,h)=> { const emp=S.employees.find(e=>e.id===id); return hours[id]+h <= (emp.maxHours||42)+0.01; };
