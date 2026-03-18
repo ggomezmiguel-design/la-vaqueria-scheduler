@@ -680,7 +680,19 @@ function renderSchedule() {
     document.getElementById("hours-sum").innerHTML=`<div class="empty"><div class="ico">⏱</div><p>Generate a schedule first.</p></div>`;
     return;
   }
-  const {sched,hours}=data;
+  const {sched}=data;
+
+  // Always recalculate hours live from current assignments + current shift times
+  const hours={};
+  S.employees.forEach(e=>hours[e.id]=0);
+  for(const [day,slots] of Object.entries(sched)){
+    for(const [si,emps] of Object.entries(slots)){
+      const shift=getSlot(day,parseInt(si));
+      if(!shift) continue;
+      (emps||[]).forEach(id=>{if(hours[id]!==undefined) hours[id]+=shift.hours;});
+    }
+  }
+  data.hours=hours; // keep stored value in sync
 
   // Time range across all open days
   const allShifts=days.flatMap(d=>getShiftsForDay(d));
