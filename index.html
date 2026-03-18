@@ -375,7 +375,7 @@ function renderShiftsTable() {
     const cells = [0,1,2].map(si => {
       const s = slots[si] || DEFAULT_SHIFTS[si];
       const hrs = s.enabled ? Math.max(0, ph(s.end)-ph(s.start)) : 0;
-      const hLabel = hrs > 0 ? (hrs%1===0?hrs:hrs.toFixed(1))+'h' : '';
+      const hLabel = hrs > 0 ? (hrs%1===0?hrs:hrs.toFixed(2))+'h' : '';
       const sm = s.staffMin ?? 2;
       const op = s.enabled ? '1' : '0.35';
       return `<td style="padding:5px 8px;border:1px solid var(--bdr)">
@@ -418,7 +418,7 @@ function updateShiftHours(day, si) {
   const h = document.getElementById(`ds-${day}-${si}-h`);
   if (!s || !e || !h) return;
   const hrs = Math.max(0, ph(e)-ph(s));
-  h.textContent = hrs > 0 ? (hrs%1===0?hrs:hrs.toFixed(1))+'h' : '';
+  h.textContent = hrs > 0 ? (hrs%1===0?hrs:hrs.toFixed(2))+'h' : '';
 }
 
 document.querySelectorAll("#cfg-days .chip").forEach(c =>
