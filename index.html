@@ -343,12 +343,12 @@ const LA_VAQUERIA_SHIFTS = {
 // Build availability helpers
 function _mkAvail(shiftMap) { return Object.fromEntries(DAYS.map(d=>[d,{...shiftMap}])); }
 const LA_VAQUERIA_STAFF = [
-  {id:"emp_maria",   name:"Maria",   role:"", hours:20, color:"#e63946", avail:_mkAvail({0:"ok",1:"ok",2:"ok"}),  fillOnly:true},
-  {id:"emp_paula",   name:"Paula",   role:"", hours:40, color:"#2a9d8f", avail:_mkAvail({0:"ok",1:"ok",2:"ok"}),  fillOnly:false},
-  {id:"emp_pedro",   name:"Pedro",   role:"", hours:40, color:"#6a4c93", avail:_mkAvail({0:"ok",1:"ok",2:"ok"}),  fillOnly:false},
-  {id:"emp_rafa",    name:"Rafa",    role:"", hours:40, color:"#f4a261", avail:_mkAvail({0:"ok",1:"ok",2:"ok"}),  fillOnly:false},
-  {id:"emp_marta",   name:"Marta",   role:"", hours:40, color:"#06d6a0", avail:_mkAvail({0:"ok",1:"ok",2:"off"}), fillOnly:false},
-  {id:"emp_natalia", name:"Natalia", role:"", hours:40, color:"#1982c4", avail:_mkAvail({0:"ok",1:"ok",2:"ok"}),  fillOnly:false}
+  {id:"emp_maria",   name:"Maria",   role:"", hours:20, maxHours:20, color:"#e63946", avail:_mkAvail({0:"ok",1:"ok",2:"ok"}),  fillOnly:true},
+  {id:"emp_paula",   name:"Paula",   role:"", hours:40, maxHours:42, color:"#2a9d8f", avail:_mkAvail({0:"ok",1:"ok",2:"ok"}),  fillOnly:false},
+  {id:"emp_pedro",   name:"Pedro",   role:"", hours:40, maxHours:42, color:"#6a4c93", avail:_mkAvail({0:"ok",1:"ok",2:"ok"}),  fillOnly:false},
+  {id:"emp_rafa",    name:"Rafa",    role:"", hours:40, maxHours:42, color:"#f4a261", avail:_mkAvail({0:"ok",1:"ok",2:"ok"}),  fillOnly:false},
+  {id:"emp_marta",   name:"Marta",   role:"", hours:40, maxHours:42, color:"#06d6a0", avail:_mkAvail({0:"ok",1:"ok",2:"off"}), fillOnly:false},
+  {id:"emp_natalia", name:"Natalia", role:"", hours:40, maxHours:42, color:"#1982c4", avail:_mkAvail({0:"ok",1:"ok",2:"ok"}),  fillOnly:false}
 ];
 let S = {
   config: {
@@ -532,13 +532,14 @@ function renderEmployees() {
     return;
   }
   el.innerHTML=`<div class="tw"><table class="dt">
-    <thead><tr><th></th><th>Name</th><th>Role</th><th>Hours/Week</th><th>Available Days</th><th></th></tr></thead>
+    <thead><tr><th></th><th>Name</th><th>Role</th><th>Hours/Week</th><th>Max Hours</th><th>Available Days</th><th></th></tr></thead>
     <tbody>${S.employees.map(e=>`
       <tr>
         <td><span class="dot" style="background:${e.color}"></span></td>
         <td><strong>${e.name}</strong>${e.fillOnly?' <span style="font-size:10px;font-weight:700;background:#fff3cd;color:#856404;border:1px solid #ffc107;border-radius:4px;padding:1px 5px">fill-in</span>':''}</td>
         <td style="color:var(--mut)">${e.role||"—"}</td>
         <td>${e.hours}h</td>
+        <td>${e.maxHours||42}h</td>
         <td style="font-size:12px">${availDays(e)}</td>
         <td style="white-space:nowrap">
           <button class="btn btn-o btn-sm" onclick="openEmpModal('${e.id}')">Edit</button>
@@ -557,7 +558,7 @@ function availDays(emp) {
 function openEmpModal(id=null) {
   _emp = id
     ? JSON.parse(JSON.stringify(S.employees.find(e=>e.id===id)))
-    : {id:uid(),name:"",role:"",hours:40,color:COLORS[S.employees.length%COLORS.length],avail:{}};
+    : {id:uid(),name:"",role:"",hours:40,maxHours:42,color:COLORS[S.employees.length%COLORS.length],avail:{}};
 
   document.getElementById("modal-title").textContent = id ? "Edit Employee" : "Add Employee";
   document.getElementById("modal-ok").onclick = saveEmp;
@@ -585,6 +586,7 @@ function openEmpModal(id=null) {
       <div class="fg"><label>Full Name *</label><input id="m-name" type="text" value="${esc(_emp.name)}" placeholder="e.g. Ana García"></div>
       <div class="fg"><label>Role</label><input id="m-role" type="text" value="${esc(_emp.role)}" placeholder="e.g. Waiter, Chef"></div>
       <div class="fg"><label>Contracted Hours / Week</label><input id="m-hours" type="number" value="${_emp.hours}" min="1" max="80"></div>
+      <div class="fg"><label>Max Hours / Week</label><input id="m-maxhours" type="number" value="${_emp.maxHours||42}" min="1" max="80"><span style="font-size:10px;color:var(--mut)">Hard cap — won't be scheduled beyond this</span></div>
       <div class="fg"><label>Colour</label><input id="m-color" type="color" value="${_emp.color}"></div>
       <div class="fg" style="justify-content:flex-end">
         <label style="margin-bottom:6px">Scheduling Priority</label>
@@ -621,6 +623,7 @@ function saveEmp() {
   _emp.name=name;
   _emp.role=document.getElementById("m-role").value.trim();
   _emp.hours=parseInt(document.getElementById("m-hours").value)||40;
+  _emp.maxHours=parseInt(document.getElementById("m-maxhours").value)||42;
   _emp.color=document.getElementById("m-color").value;
   _emp.fillOnly=document.getElementById("m-fillin").checked;
   _emp.avail={};
@@ -661,12 +664,11 @@ function generateSchedule() {
         if(ap!==bp) return bp-ap;
         return (b.hours-hours[b.id])-(a.hours-hours[a.id]);
       };
-      const MAX_HRS = 42; // hard cap — nobody gets more than this
       const regular=allCands.filter(e=>!e.fillOnly).sort(sortFn);
       const fillin =allCands.filter(e=> e.fillOnly).sort(sortFn);
       const assigned=[];
       const fits=(id,h)=> hours[id]+h <= S.employees.find(e=>e.id===id).hours+0.01;
-      const underCap=(id,h)=> hours[id]+h <= MAX_HRS+0.01;
+      const underCap=(id,h)=> { const emp=S.employees.find(e=>e.id===id); return hours[id]+h <= (emp.maxHours||42)+0.01; };
       // Pass 1: regular staff within contracted hours
       for(const e of regular){
         if(assigned.length>=shift.staffMin) break;
@@ -1046,7 +1048,7 @@ async function generateWithAI() {
   // Build staff context
   const staffInfo = S.employees.map(e => ({
     id: e.id, name: e.name, role: e.role||"",
-    contractedHours: e.hours, fillInOnly: e.fillOnly||false,
+    contractedHours: e.hours, maxHours: e.maxHours||42, fillInOnly: e.fillOnly||false,
     availability: S.config.openDays.flatMap(day =>
       getShiftsForDay(day).reduce((acc, s) => {
         const v = e.avail?.[day]?.[s.idx];
@@ -1079,6 +1081,7 @@ Generate a weekly staff schedule following these rules:
 - Prioritise "preferred" availability over "available"
 - Aim to meet each employee's contracted weekly hours (sum of shift hours assigned)
 - fillInOnly employees must only be assigned if a shift would be understaffed without them
+- NEVER assign anyone more than their maxHours per week
 - Meet the minStaff requirement for each shift where possible
 - Follow the scheduling instructions above carefully
 
