@@ -317,13 +317,30 @@ const DEFAULT_SHIFTS = [
 ];
 
 // ── STATE ──────────────────────────────────────────────────────────
+const LA_VAQUERIA_SHIFTS = {
+  Mon:[{start:"09:00",end:"14:00",enabled:true,staffMin:2},{start:"14:00",end:"19:00",enabled:true,staffMin:2},{start:"19:00",end:"23:00",enabled:true,staffMin:2}],
+  Tue:[{start:"09:00",end:"14:00",enabled:true,staffMin:2},{start:"14:00",end:"19:00",enabled:true,staffMin:2},{start:"19:00",end:"23:00",enabled:true,staffMin:2}],
+  Wed:[{start:"09:00",end:"14:00",enabled:true,staffMin:2},{start:"14:00",end:"19:00",enabled:true,staffMin:2},{start:"19:00",end:"23:00",enabled:true,staffMin:2}],
+  Thu:[{start:"09:00",end:"14:00",enabled:true,staffMin:2},{start:"14:00",end:"19:00",enabled:true,staffMin:2},{start:"19:00",end:"23:00",enabled:true,staffMin:2}],
+  Fri:[{start:"09:00",end:"13:45",enabled:true,staffMin:2},{start:"13:45",end:"18:00",enabled:true,staffMin:2},{start:"18:00",end:"23:59",enabled:true,staffMin:3}],
+  Sat:[{start:"09:00",end:"14:00",enabled:true,staffMin:3},{start:"14:00",end:"19:00",enabled:true,staffMin:2},{start:"19:00",end:"23:00",enabled:true,staffMin:2}],
+  Sun:[{start:"10:00",end:"15:45",enabled:true,staffMin:3},{start:"15:45",end:"16:15",enabled:true,staffMin:2},{start:"16:15",end:"22:00",enabled:true,staffMin:2}]
+};
+const LA_VAQUERIA_STAFF = [
+  {id:"emp_maria",   name:"Maria",   role:"", hours:20, color:"#e63946", avail:{}, fillOnly:false},
+  {id:"emp_paula",   name:"Paula",   role:"", hours:40, color:"#2a9d8f", avail:{}, fillOnly:false},
+  {id:"emp_pedro",   name:"Pedro",   role:"", hours:40, color:"#6a4c93", avail:{}, fillOnly:false},
+  {id:"emp_rafa",    name:"Rafa",    role:"", hours:40, color:"#f4a261", avail:{}, fillOnly:false},
+  {id:"emp_marta",   name:"Marta",   role:"", hours:40, color:"#06d6a0", avail:{}, fillOnly:false},
+  {id:"emp_natalia", name:"Natalia", role:"", hours:40, color:"#1982c4", avail:{}, fillOnly:false}
+];
 let S = {
   config: {
     name:"La Vaqueria",
-    dayShifts: Object.fromEntries(DAYS.map(d=>[d, DEFAULT_SHIFTS.map(s=>({...s}))])),
+    dayShifts: JSON.parse(JSON.stringify(LA_VAQUERIA_SHIFTS)),
     openDays:[...DAYS]
   },
-  employees: [],
+  employees: JSON.parse(JSON.stringify(LA_VAQUERIA_STAFF)),
   schedules: {}
 };
 let weekStart = getMonday(new Date());
