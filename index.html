@@ -110,6 +110,7 @@ table.mx td{padding:3px;border:1px solid var(--bdr);text-align:center}
 .tl-bar:hover{filter:brightness(.93)}
 .tl-bar-time{font-size:9px;font-weight:600;opacity:.65;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .tl-bar-badges{display:flex;flex-wrap:wrap;gap:2px}
+.tl-badge-drag{cursor:grab;transition:opacity .15s}.tl-badge-drag:active{cursor:grabbing}.tl-badge-drag.dragging{opacity:.35}
 .tl-bar-warn{font-size:9px;color:var(--dan);font-weight:600}
 .tl-bar-empty{font-size:10px;opacity:.4}
 .tl-bar.dragging{opacity:.4;cursor:grabbing}
@@ -723,7 +724,7 @@ function renderSchedule() {
       const under=assigned.length<shift.staffMin;
       const badges=assigned.map(id=>{
         const e=S.employees.find(e=>e.id===id); if(!e) return "";
-        return `<span class="badge" style="background:${e.color}">${e.name.split(" ")[0]}</span>`;
+        return `<span class="badge tl-badge-drag" draggable="true" style="background:${e.color}" ondragstart="dragBadge(event,'${day}',${shift.idx},'${id}')" ondragend="this.classList.remove('dragging')">${e.name.split(" ")[0]}</span>`;
       }).join("");
       const bg=SHIFT_COLORS[shift.idx]||"#f0f4ff";
       const bd=SHIFT_BORDER[shift.idx]||"#c5d0e6";
@@ -782,7 +783,14 @@ function renderSchedule() {
 
 // ── DRAG & DROP ────────────────────────────────────────────────────
 function dragShift(e, day, slotIdx) {
-  e.dataTransfer.setData('text/plain', JSON.stringify({day, slotIdx}));
+  e.dataTransfer.setData('text/plain', JSON.stringify({type:'bar', day, slotIdx}));
+  e.dataTransfer.effectAllowed = 'move';
+  setTimeout(()=>e.target.classList.add('dragging'), 0);
+}
+
+function dragBadge(e, day, slotIdx, empId) {
+  e.stopPropagation(); // don't trigger parent bar drag
+  e.dataTransfer.setData('text/plain', JSON.stringify({type:'badge', day, slotIdx, empId}));
   e.dataTransfer.effectAllowed = 'move';
   setTimeout(()=>e.target.classList.add('dragging'), 0);
 }
@@ -813,18 +821,51 @@ function swapShifts(fromDay, fromSlotIdx, toDay, toSlotIdx) {
 function dropShift(e, toDay) {
   e.preventDefault();
   e.currentTarget.classList.remove('drag-over');
-  const {day: fromDay, slotIdx} = JSON.parse(e.dataTransfer.getData('text/plain'));
-  if(fromDay === toDay) return; // handled by dropOnBar if dropped on a bar
-  swapShifts(fromDay, slotIdx, toDay, slotIdx);
+  const payload = JSON.parse(e.dataTransfer.getData('text/plain'));
+  if(payload.type === 'badge') {
+    // Badge dropped on empty day row — move to first available shift on that day
+    const shifts = getShiftsForDay(toDay);
+    if(!shifts.length) return;
+    moveBadge(payload.day, payload.slotIdx, payload.empId, toDay, shifts[0].idx);
+  } else {
+    const {day: fromDay, slotIdx} = payload;
+    if(fromDay === toDay) return;
+    swapShifts(fromDay, slotIdx, toDay, slotIdx);
+  }
 }
 
 function dropOnBar(e, toDay, toSlotIdx) {
   e.preventDefault();
   e.stopPropagation();
   e.currentTarget.style.outline = '';
-  const {day: fromDay, slotIdx: fromSlotIdx} = JSON.parse(e.dataTransfer.getData('text/plain'));
-  if(fromDay === toDay && fromSlotIdx === toSlotIdx) return;
-  swapShifts(fromDay, fromSlotIdx, toDay, toSlotIdx);
+  const payload = JSON.parse(e.dataTransfer.getData('text/plain'));
+  if(payload.type === 'badge') {
+    if(payload.day === toDay && payload.slotIdx === toSlotIdx) return;
+    moveBadge(payload.day, payload.slotIdx, payload.empId, toDay, toSlotIdx);
+  } else {
+    const {day: fromDay, slotIdx: fromSlotIdx} = payload;
+    if(fromDay === toDay && fromSlotIdx === toSlotIdx) return;
+    swapShifts(fromDay, fromSlotIdx, toDay, toSlotIdx);
+  }
+}
+
+function moveBadge(fromDay, fromSlotIdx, empId, toDay, toSlotIdx) {
+  const key = wkKey(weekStart);
+  if(!S.schedules?.[key]) return;
+  const {sched} = S.schedules[key];
+  if(!sched[fromDay]) return;
+  const fromArr = sched[fromDay][fromSlotIdx] || [];
+  if(!fromArr.includes(empId)) return;
+  // Remove from source
+  sched[fromDay][fromSlotIdx] = fromArr.filter(id => id !== empId);
+  // Add to target if not already there
+  if(!sched[toDay]) sched[toDay] = {};
+  const toArr = sched[toDay][toSlotIdx] || [];
+  if(!toArr.includes(empId)) sched[toDay][toSlotIdx] = [...toArr, empId];
+  save(); renderSchedule();
+  const emp = S.employees.find(e => e.id === empId);
+  const name = emp?.name?.split(' ')[0] || 'Employee';
+  toast(`${name} moved to ${toDay} shift ${toSlotIdx+1} ✓`);
 }
 
 // ── SHIFT RESIZE ───────────────────────────────────────────────────
