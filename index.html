@@ -1081,14 +1081,16 @@ ${JSON.stringify(shiftConfig, null, 2)}
 ${instructions || "Generate a fair schedule that respects contracted hours and staff availability preferences."}
 
 ## Task
-Generate a weekly staff schedule following these rules:
-- Only assign an employee to a shift if their availability for that day/shift is "available" or "preferred"
-- Prioritise "preferred" availability over "available"
-- Aim to meet each employee's contracted weekly hours (sum of shift hours assigned)
-- fillInOnly employees must only be assigned if a shift would be understaffed without them
-- NEVER assign anyone more than their maxHours per week
-- Meet the minStaff requirement for each shift where possible
-- Follow the scheduling instructions above carefully
+Generate a weekly staff schedule following these rules IN STRICT PRIORITY ORDER:
+1. HARD LIMIT: The total weekly hours for EACH employee MUST be ≤ their maxHours. This is the MOST IMPORTANT rule. Calculate running totals as you assign shifts.
+2. Only assign an employee to a shift if their availability for that day/shift is "available" or "preferred"
+3. Prioritise "preferred" availability over "available"
+4. fillInOnly employees should only be assigned if a shift would be understaffed without them — but DO use them instead of pushing regular staff over their maxHours
+5. Meet the minStaff requirement for each shift where possible (it is OK to be understaffed rather than exceed someone's maxHours)
+6. Aim to meet each employee's contracted weekly hours
+7. Follow the scheduling instructions above carefully
+
+CRITICAL: Before finalising, verify EVERY employee's total hours ≤ their maxHours. If anyone exceeds it, remove them from their last assigned shifts until they are under the cap.
 
 Return ONLY valid JSON, no markdown, no explanation:
 {
@@ -1154,6 +1156,32 @@ Only include days that are open. Only include slot indices for enabled shifts. I
         emps.forEach(id => { if(hours[id]!==undefined) hours[id] += shift.hours; });
       }
     }
+
+    // POST-PROCESSING: enforce maxHours hard cap
+    // Walk shifts in reverse (Sun→Mon, last shift first) and remove employees over their cap
+    const openDaysRev = [...S.config.openDays].reverse();
+    let trimmed = 0;
+    for(const day of openDaysRev) {
+      for(let si = 2; si >= 0; si--) {
+        const arr = sched[day]?.[si];
+        if(!arr || !arr.length) continue;
+        const shift = getSlot(day, si);
+        if(!shift) continue;
+        const keep = [];
+        for(const id of arr) {
+          const emp = S.employees.find(e => e.id === id);
+          const cap = emp?.maxHours || 42;
+          if(hours[id] > cap + 0.01) {
+            hours[id] -= shift.hours;
+            trimmed++;
+          } else {
+            keep.push(id);
+          }
+        }
+        sched[day][si] = keep;
+      }
+    }
+    if(trimmed) console.log(`Post-processing: removed ${trimmed} over-cap assignments`);
 
     const wk = wkKey(weekStart);
     if(!S.schedules) S.schedules = {};
