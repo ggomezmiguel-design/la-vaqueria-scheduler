@@ -674,7 +674,9 @@ function generateSchedule() {
       const sortFn=(a,b)=>{
         const ap=a.avail?.[day]?.[si]==="pref", bp=b.avail?.[day]?.[si]==="pref";
         if(ap!==bp) return bp-ap;
-        return (b.hours-hours[b.id])-(a.hours-hours[a.id]);
+        const diff=(b.hours-hours[b.id])-(a.hours-hours[a.id]);
+        if(Math.abs(diff)<2) return Math.random()-0.5; // randomise among similar candidates
+        return diff;
       };
       const regular=allCands.filter(e=>!e.fillOnly).sort(sortFn);
       const fillin =allCands.filter(e=> e.fillOnly).sort(sortFn);
